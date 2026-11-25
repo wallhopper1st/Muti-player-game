@@ -70,7 +70,10 @@ h1{font-size:clamp(34px,6vw,64px);line-height:.9;letter-spacing:.02em}h1 b{color
 #controls{background:#0c1218;border:1px solid #ffffff18;padding:14px}#controls h2{margin-bottom:4px}#controls p{color:#8da0b5;font-weight:500;margin-bottom:12px}.binds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.bind{display:flex;align-items:center;justify-content:space-between;text-align:left;gap:8px}.bind kbd{color:var(--a);background:#06090d;border:1px solid #ffffff2a;padding:4px 7px;min-width:48px;text-align:center}.bind.record{border-color:var(--a);color:var(--a)}
 #pause .tabs{margin-top:10px}#pause .gfx,#pause #controls{margin-bottom:10px}#quitmatch{background:#35191b;border-color:#ff4d4d66;color:#ffb1b1;margin-top:8px}#quitmatch:hover{background:#ff4d4d;color:#111}
 #confirm{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:#020508c9;backdrop-filter:blur(7px);padding:16px}#confirm .mc{width:min(440px,94vw);border-left:3px solid var(--r)}#confirm h2{font-size:28px;margin-bottom:8px}#confirm p{color:#b4c2d1;line-height:1.45;margin-bottom:14px}.confirmrow{display:flex;gap:8px}.confirmrow button{flex:1}
-/* Queue overlay */
+/* Room & queue controls */
+.roombar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;padding:10px;background:#0c1218;border:1px solid #ffffff1e;border-left:3px solid var(--g)}
+.roombar label{display:flex;align-items:center;gap:8px;flex:1;min-width:200px}
+#createroom{background:#15362c;border-color:#43d9a066;color:#9ff5d4}#createroom:hover{background:var(--g);color:#09110e;border-color:var(--g)}
 #queuebox{margin-top:10px;margin-bottom:10px;padding:12px;background:#0c1218;border:1px solid #ffffff24;border-left:3px solid var(--b);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}#queuebox b{display:block;font-size:15px;color:var(--a)}#queuebox small{color:#8da0b5;font-weight:500}
 @media(max-width:620px){#mapb,#siteb{grid-template-columns:1fr}.binds{grid-template-columns:repeat(2,minmax(0,1fr))}.tabs button{flex:1;min-width:40%}.mc{padding:14px}}
 </style></head><body>
@@ -92,7 +95,7 @@ h1{font-size:clamp(34px,6vw,64px);line-height:.9;letter-spacing:.02em}h1 b{color
 <label>Primary<select id="sp"></select></label><label>Sidearm<select id="ss"></select></label>
 <label>Optic<select id="so"><option value="HOLO">Holographic 1.0×</option><option value="REF">Reflex 1.0×</option><option value="ACOG">ACOG 2.5×</option><option value="IRON">Iron sights</option></select></label></div></div>
 <div class="gfx"></div><div id="controls" class="hide"><h2>Control bindings</h2><p>Select a binding, then press the key you want to use. Escape cancels.</p><div class="binds" id="binds"></div></div>
-<div class="row"><label style="display:flex;align-items:center;gap:8px;width:100%"><span style="color:#8da0b5">Room code (optional for friend match)</span><input id="roomcode" maxlength="12" placeholder="e.g. SQUAD1" style="flex:1;text-transform:uppercase"></label></div>
+<div class="row"><div class="roombar"><label><span style="color:#8da0b5">Room code</span><input id="roomcode" maxlength="12" placeholder="Enter code or create room" style="flex:1;text-transform:uppercase"></label><button id="createroom" type="button">Create room</button></div></div>
 <div id="queuebox" class="hide"><div><b id="qtitle">Searching for opponent...</b><small id="qsub">Bot fallback in 8s</small></div><button id="qcancel" type="button">Cancel</button></div>
 <button id="go">Deploy</button><p class="help">WASD move · mouse aim · RMB or X aim down sights · LMB fire · V melee · Q/E lean · C crouch · Shift sprint · G gadget · F interact (hold to plant/defuse) · R reload · 1/2 swap · T end prep</p></div></div>
 <div id="end" class="hide"><div class="mc"><h2 id="eh"></h2><p id="ed"></p><div class="big" id="es"></div><button id="eb" style="width:100%;padding:12px">Next round</button></div></div>
@@ -482,13 +485,21 @@ if(S.phase==='PREP'&&pl.side==='D'&&pl.rf>0){let b=null,bd=3.4;P.forEach(p=>{if(
 function drone(on){if(pl.side!=='A'||!pl.alive)return;pl.drone=on;fp.visible=!on&&pl.alive;$('dr').classList.toggle('hide',!on);if(on){pl.dp.set(pl.pos.x,.25,pl.pos.z-1);pl.dyaw=0;pl.dpitch=0}}
 function endPrep(){if(S.phase!=='PREP')return;S.phase='ACT';S.t=150;if(pl.drone)drone(false);ban('Action phase',pl.side==='A'?'Breach and plant the defuser':'Hold the building');snd(700,'triangle',.25,.3)}
 
-/* ---------------- MATCHMAKING QUEUE + ROOM CODE + BOT FALLBACK ---------------- */
+/* ---------------- ROOM CREATION + QUEUE + BOT FALLBACK ---------------- */
 const BOT_WAIT_SECONDS=8;
 let ws=null,inQueue=false,qTimer=null,qCountdown=null,qLeft=BOT_WAIT_SECONDS,qReconnects=0,peerUnit=null;
+
+function genRoomCode(){
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code='';
+  for(let i=0;i<6;i++)code+=chars[(Rn()*chars.length)|0];
+  return code;
+}
 
 function getRoomCode(){
   const inp=$('roomcode');
   const raw=inp?inp.value.trim().toUpperCase().replace(/[^A-Z0-9_-]/g,''):'';
+  if(inp&&inp.value!==raw)inp.value=raw;
   return raw||null;
 }
 
@@ -498,6 +509,7 @@ function clearQueue(){
   qTimer=null;qCountdown=null;
   $('queuebox').classList.add('hide');
   $('go').disabled=false;
+  $('createroom').disabled=false;
 }
 
 function sendPeerEvent(payload){
@@ -521,10 +533,10 @@ function syncPeerUnit(payload){
   }
 }
 
-function sendJoinMessage(roomCode){
+function sendJoinMessage(roomCode,isHost=false){
   if(!ws||ws.readyState!==WebSocket.OPEN)return;
   ws.send(JSON.stringify({
-    type:roomCode?'join_room':'join_queue',
+    type:roomCode?(isHost?'create_room':'join_room'):'join_queue',
     roomCode,
     map:S.map,
     side:pl.side,
@@ -532,7 +544,7 @@ function sendJoinMessage(roomCode){
   }));
 }
 
-function connectQueueSocket(onOpenJoin,roomCode=null){
+function connectQueueSocket(onOpenJoin,roomCode=null,isHost=false){
   const proto=location.protocol==='https:'?'wss:':'ws:';
   ws=new WebSocket(`${proto}//${location.host}/api/ws`);
   ws.onopen=()=>{
@@ -540,12 +552,15 @@ function connectQueueSocket(onOpenJoin,roomCode=null){
     if(S.netMode==='online'&&S.matchId&&ws.readyState===WebSocket.OPEN){
       ws.send(JSON.stringify({type:'rejoin_match',matchId:S.matchId,side:pl.side,op:pl.op.id}));
     }else if(onOpenJoin&&inQueue){
-      sendJoinMessage(roomCode);
+      sendJoinMessage(roomCode,isHost);
     }
   };
   ws.onmessage=ev=>{
     let msg;try{msg=JSON.parse(ev.data)}catch{return}
-    if(msg.type==='queue_update'&&inQueue){
+    if(msg.type==='room_created'&&inQueue){
+      const code=msg.roomCode||roomCode;
+      $('qtitle').textContent=`Room ${code} created — waiting for player...`;
+    }else if(msg.type==='queue_update'&&inQueue){
       $('qsub').textContent=`Bot fallback in ${qLeft}s · Players waiting: ${msg.playersInQueue??1}`;
     }else if(msg.type==='matched'&&inQueue){
       clearQueue();
@@ -557,7 +572,7 @@ function connectQueueSocket(onOpenJoin,roomCode=null){
   ws.onclose=()=>{
     if(inQueue||S.netMode==='online'){
       const delay=Math.min(4000,500*Math.pow(2,qReconnects++));
-      setTimeout(()=>connectQueueSocket(inQueue,getRoomCode()),delay);
+      setTimeout(()=>connectQueueSocket(inQueue,getRoomCode(),false),delay);
     }
   };
 }
@@ -581,22 +596,32 @@ function beginMatchWithMode(mode,matchId,opponentName){
   }
 }
 
-function startQueueOrBotFallback(){
+function startQueueOrBotFallback(forceNewRoom=false){
   if(inQueue)return;
   const op=OPS.find(o=>o.id===selOp);
-  const roomCode=getRoomCode();
+  let roomCode=getRoomCode();
+  if(forceNewRoom&&!roomCode){
+    roomCode=genRoomCode();
+    $('roomcode').value=roomCode;
+  }
+  if(forceNewRoom&&navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(roomCode).catch(()=>{});
+  }
   pl.op=op;pl.pw=$('sp').value;pl.sw=$('ss').value;pl.opt=$('so').value;
   inQueue=true;
   qLeft=BOT_WAIT_SECONDS;
   $('go').disabled=true;
+  $('createroom').disabled=true;
   $('queuebox').classList.remove('hide');
-  $('qtitle').textContent=roomCode?`Joining room ${roomCode}...`:'Searching for online match...';
+  $('qtitle').textContent=forceNewRoom
+    ?`Created room ${roomCode} (copied) — waiting for friend...`
+    :roomCode?`Joining room ${roomCode}...`:'Searching for online match...';
   $('qsub').textContent=`Bot fallback in ${qLeft}s`;
 
   if(!ws||ws.readyState===WebSocket.CLOSED){
-    connectQueueSocket(true,roomCode);
+    connectQueueSocket(true,roomCode,forceNewRoom);
   }else if(ws.readyState===WebSocket.OPEN){
-    sendJoinMessage(roomCode);
+    sendJoinMessage(roomCode,forceNewRoom);
   }
 
   qCountdown=setInterval(()=>{
@@ -615,6 +640,13 @@ function startQueueOrBotFallback(){
     beginMatchWithMode('bot','bot_'+Math.random().toString(36).slice(2,7),'Bots');
   },BOT_WAIT_SECONDS*1000);
 }
+
+$('createroom').onclick=()=>{
+  au();
+  const code=genRoomCode();
+  $('roomcode').value=code;
+  startQueueOrBotFallback(true);
+};
 
 $('qcancel').onclick=()=>{
   if(!inQueue)return;
@@ -661,7 +693,7 @@ $('mapinfo').innerHTML=`<b>${MAP.n}</b> · ${MAP.W} × ${MAP.H} tactical layout<
 $('mapb').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.map=+b.dataset.m;build(S.map);menuTab='maps';menu(true)});
 $('sideb').innerHTML='<span style="align-self:center;color:#8da0b5">Start as</span>'+['A','D'].map(s=>`<button class="${pl.side===s?'on':''}" data-s="${s}">${s==='A'?'Attackers':'Defenders'}</button>`).join('');
 $('sideb').querySelectorAll('button').forEach(b=>b.onclick=()=>{pl.side=b.dataset.s;menu(true)})}}
-$('go').onclick=()=>{au();startQueueOrBotFallback()};
+$('go').onclick=()=>{au();startQueueOrBotFallback(false)};
 $('eb').onclick=()=>{if($('eb').dataset.done){S.sp=S.se=0;S.round=1;S.netMode='bot';menuTab='ops';menu(true)}else{S.round++;pl.side=pl.side==='A'?'D':'A';menuTab='ops';menu(false)}};
 $('resume').onclick=()=>{$('c').requestPointerLock()};
 $('quitmatch').onclick=()=>{$('confirm').classList.remove('hide')};$('cancelquit').onclick=()=>{$('confirm').classList.add('hide')};
