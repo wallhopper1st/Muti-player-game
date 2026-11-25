@@ -1,280 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Multiplayer Queue + Bot Fallback</title>
-  <style>
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #111318;
-      color: #f3f4f6;
-      display: grid;
-      place-items: center;
-      min-height: 100vh;
-      margin: 0;
-    }
-    .card {
-      background: #1b1f2a;
-      border: 1px solid #2d3343;
-      border-radius: 12px;
-      padding: 24px;
-      width: min(440px, 92vw);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-    }
-    button {
-      background: #4f46e5;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 10px 16px;
-      font-weight: 600;
-      cursor: pointer;
-      margin-right: 8px;
-    }
-    button.secondary {
-      background: #374151;
-    }
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .status {
-      margin-top: 16px;
-      padding: 12px;
-      border-radius: 8px;
-      background: #12151d;
-      font-size: 0.95rem;
-      line-height: 1.45;
-    }
-    .arena {
-      margin-top: 16px;
-      padding: 14px;
-      border-radius: 8px;
-      border: 1px solid #2b3446;
-      background: #141923;
-      display: none;
-    }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h2>Matchmaking Queue</h2>
-    <p style="color:#9ca3af; margin-top:4px;">
-      Searches for an online opponent, then fills with a bot if none join within 8s.
-    </p>
-
-    <div>
-      <button id="joinBtn">Find Match</button>
-      <button id="cancelBtn" class="secondary" disabled>Cancel</button>
-    </div>
-
-    <div id="statusBox" class="status">Idle — ready to queue.</div>
-
-    <div id="arenaBox" class="arena">
-      <div id="matchInfo" style="font-weight:600; margin-bottom:10px;"></div>
-      <button id="actionBtn">Send Action / Attack</button>
-      <button id="leaveMatchBtn" class="secondary">Leave Match</button>
-      <div id="log" style="margin-top:12px; font-size:0.85rem; color:#cbd5e1; max-height:140px; overflow-y:auto;"></div>
-    </div>
-  </div>
-
-  <script>
-    const BOT_WAIT_SECONDS = 8;
-
-    let socket = null;
-    let inQueue = false;
-    let countdownInterval = null;
-    let botTimer = null;
-    let botActionInterval = null;
-    let secondsLeft = BOT_WAIT_SECONDS;
-    let currentMatch = null;
-    let reconnectAttempts = 0;
-
-    const joinBtn = document.getElementById("joinBtn");
-    const cancelBtn = document.getElementById("cancelBtn");
-    const statusBox = document.getElementById("statusBox");
-    const arenaBox = document.getElementById("arenaBox");
-    const matchInfo = document.getElementById("matchInfo");
-    const actionBtn = document.getElementById("actionBtn");
-    const leaveMatchBtn = document.getElementById("leaveMatchBtn");
-    const logEl = document.getElementById("log");
-
-    function log(text) {
-      const line = document.createElement("div");
-      line.textContent = "• " + text;
-      logEl.prepend(line);
-    }
-
-    function clearQueueTimers() {
-      clearInterval(countdownInterval);
-      clearTimeout(botTimer);
-      countdownInterval = null;
-      botTimer = null;
-    }
-
-    function stopBotLoop() {
-      clearInterval(botActionInterval);
-      botActionInterval = null;
-    }
-
-    function connectSocket() {
-      const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-      socket = new WebSocket(`${protocol}//${location.host}/api/ws`);
-
-      socket.onopen = () => {
-        reconnectAttempts = 0;
-        if (inQueue) {
-          socket.send(JSON.stringify({ type: "join_queue" }));
-        }
-      };
-
-      socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-
-        if (data.type === "queue_update" && inQueue) {
-          statusBox.textContent = `Searching for opponent... (${secondsLeft}s until bot fallback) | Queue seen on instance: ${data.playersInQueue}`;
-        }
-
-        if (data.type === "matched" && inQueue) {
-          startMatch({
-            matchId: data.matchId,
-            opponent: data.opponent,
-            isBot: false
-          });
-        }
-
-        if (data.type === "peer_event" && currentMatch && !currentMatch.isBot) {
-          log(`Opponent: ${data.payload}`);
-        }
-      };
-
-      socket.onclose = () => {
-        // Reconnect automatically if still queued or in a live online match
-        if (inQueue || (currentMatch && !currentMatch.isBot)) {
-          const delay = Math.min(5000, 500 * Math.pow(2, reconnectAttempts++));
-          setTimeout(connectSocket, delay);
-        }
-      };
-    }
-
-    function startMatch(match) {
-      inQueue = false;
-      clearQueueTimers();
-      stopBotLoop();
-      currentMatch = match;
-
-      joinBtn.disabled = true;
-      cancelBtn.disabled = true;
-      arenaBox.style.display = "block";
-      logEl.innerHTML = "";
-
-      statusBox.textContent = match.isBot
-        ? `Matched with ${match.opponent} (Bot Fallback)`
-        : `Matched online with ${match.opponent}`;
-
-      matchInfo.textContent = `${match.isBot ? "🤖 Bot Match" : "🌐 Online Match"} — ${match.matchId}`;
-      log(`Match started against ${match.opponent}.`);
-
-      if (match.isBot) {
-        botActionInterval = setInterval(() => {
-          if (!currentMatch || !currentMatch.isBot) return;
-          const botMoves = ["Bot dodged left", "Bot fired a shot", "Bot repositioned"];
-          const move = botMoves[Math.floor(Math.random() * botMoves.length)];
-          log(`${match.opponent}: ${move}`);
-        }, 2500);
-      }
-    }
-
-    joinBtn.addEventListener("click", () => {
-      if (currentMatch) return;
-      inQueue = true;
-      secondsLeft = BOT_WAIT_SECONDS;
-      joinBtn.disabled = true;
-      cancelBtn.disabled = false;
-
-      if (!socket || socket.readyState === WebSocket.CLOSED) {
-        connectSocket();
-      }
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "join_queue" }));
-      }
-
-      statusBox.textContent = `Searching for opponent... (${secondsLeft}s until bot fallback)`;
-
-      countdownInterval = setInterval(() => {
-        secondsLeft -= 1;
-        if (secondsLeft > 0 && inQueue) {
-          statusBox.textContent = `Searching for opponent... (${secondsLeft}s until bot fallback)`;
-        }
-      }, 1000);
-
-      botTimer = setTimeout(() => {
-        if (inQueue) {
-          startMatch({
-            matchId: "bot_" + Math.random().toString(36).slice(2, 7),
-            opponent: "Sparring Bot",
-            isBot: true
-          });
-        }
-      }, BOT_WAIT_SECONDS * 1000);
-    });
-
-    cancelBtn.addEventListener("click", () => {
-      inQueue = false;
-      clearQueueTimers();
-      joinBtn.disabled = false;
-      cancelBtn.disabled = true;
-      statusBox.textContent = "Queue cancelled.";
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "leave_queue" }));
-      }
-    });
-
-    actionBtn.addEventListener("click", () => {
-      if (!currentMatch) return;
-      const actionText = "Player launched an attack";
-      log(`You: ${actionText}`);
-
-      if (!currentMatch.isBot && socket && socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "match_event", payload: actionText }));
-      }
-    });
-
-    leaveMatchBtn.addEventListener("click", () => {
-      stopBotLoop();
-      currentMatch = null;
-      arenaBox.style.display = "none";
-      joinBtn.disabled = false;
-      cancelBtn.disabled = true;
-      statusBox.textContent = "Left match. Ready to queue again.";
-    });
-  </script>
-</body>
-</html>
-function startMatch(match) {
-  inQueue = false;
-  clearQueueTimers();
-  stopBotLoop();
-  currentMatch = match;
-
-  arenaBox.style.display = "block";
-  statusBox.textContent = match.isBot
-    ? `Matched with ${match.opponent} (Bot)`
-    : `Matched online with ${match.opponent}`;
-
-  // Start your actual game here:
-  initGame({
-    mode: match.isBot ? "bot" : "online",
-    matchId: match.matchId,
-    opponentName: match.opponent
-  });
-}
-function sendGameMove(moveData) {
-  if (currentMatch && !currentMatch.isBot && socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ type: "match_event", payload: moveData }));
-  }
-}
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Siege Protocol</title>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -346,6 +69,8 @@ h1{font-size:clamp(34px,6vw,64px);line-height:.9;letter-spacing:.02em}h1 b{color
 #controls{background:#0c1218;border:1px solid #ffffff18;padding:14px}#controls h2{margin-bottom:4px}#controls p{color:#8da0b5;font-weight:500;margin-bottom:12px}.binds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.bind{display:flex;align-items:center;justify-content:space-between;text-align:left;gap:8px}.bind kbd{color:var(--a);background:#06090d;border:1px solid #ffffff2a;padding:4px 7px;min-width:48px;text-align:center}.bind.record{border-color:var(--a);color:var(--a)}
 #pause .tabs{margin-top:10px}#pause .gfx,#pause #controls{margin-bottom:10px}#quitmatch{background:#35191b;border-color:#ff4d4d66;color:#ffb1b1;margin-top:8px}#quitmatch:hover{background:#ff4d4d;color:#111}
 #confirm{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:#020508c9;backdrop-filter:blur(7px);padding:16px}#confirm .mc{width:min(440px,94vw);border-left:3px solid var(--r)}#confirm h2{font-size:28px;margin-bottom:8px}#confirm p{color:#b4c2d1;line-height:1.45;margin-bottom:14px}.confirmrow{display:flex;gap:8px}.confirmrow button{flex:1}
+/* Queue overlay */
+#queuebox{margin-top:10px;padding:12px;background:#0c1218;border:1px solid #ffffff24;border-left:3px solid var(--b);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}#queuebox b{display:block;font-size:15px;color:var(--a)}#queuebox small{color:#8da0b5;font-weight:500}
 @media(max-width:620px){#mapb,#siteb{grid-template-columns:1fr}.binds{grid-template-columns:repeat(2,minmax(0,1fr))}.tabs button{flex:1;min-width:40%}.mc{padding:14px}}
 </style></head><body>
 <canvas id="c"></canvas>
@@ -365,7 +90,9 @@ h1{font-size:clamp(34px,6vw,64px);line-height:.9;letter-spacing:.02em}h1 b{color
 <div class="two"><div id="ops"></div><div id="dos"><h2 id="dn"></h2><p id="dd"></p><p id="dg" style="color:var(--a)"></p>
 <label>Primary<select id="sp"></select></label><label>Sidearm<select id="ss"></select></label>
 <label>Optic<select id="so"><option value="HOLO">Holographic 1.0×</option><option value="REF">Reflex 1.0×</option><option value="ACOG">ACOG 2.5×</option><option value="IRON">Iron sights</option></select></label></div></div>
-<div class="gfx"></div><div id="controls" class="hide"><h2>Control bindings</h2><p>Select a binding, then press the key you want to use. Escape cancels.</p><div class="binds" id="binds"></div></div><button id="go">Deploy</button><p class="help">WASD move · mouse aim · RMB or X aim down sights · LMB fire · V melee · Q/E lean · C crouch · Shift sprint · G gadget · F interact (hold to plant/defuse) · R reload · 1/2 swap · T end prep</p></div></div>
+<div class="gfx"></div><div id="controls" class="hide"><h2>Control bindings</h2><p>Select a binding, then press the key you want to use. Escape cancels.</p><div class="binds" id="binds"></div></div>
+<div id="queuebox" class="hide"><div><b id="qtitle">Searching for opponent...</b><small id="qsub">Bot fallback in 8s</small></div><button id="qcancel" type="button">Cancel</button></div>
+<button id="go">Deploy</button><p class="help">WASD move · mouse aim · RMB or X aim down sights · LMB fire · V melee · Q/E lean · C crouch · Shift sprint · G gadget · F interact (hold to plant/defuse) · R reload · 1/2 swap · T end prep</p></div></div>
 <div id="end" class="hide"><div class="mc"><h2 id="eh"></h2><p id="ed"></p><div class="big" id="es"></div><button id="eb" style="width:100%;padding:12px">Next round</button></div></div>
 <div id="pause" class="hide"><div class="mc" style="width:min(760px,94vw)"><h2>Paused</h2><p class="sub">Adjust your settings and controls.</p><div class="tabs" id="pausetabs"><button data-tab="settings">Settings</button><button data-tab="controls">Controls</button></div><div class="gfx" id="pausegfx"></div><div id="pausecontrols" class="hide"><div class="binds" id="pausebinds"></div></div><button id="resume" style="width:100%;padding:12px;margin-top:6px">Resume match</button><button id="quitmatch" style="width:100%;padding:10px">End match</button></div></div>
 <div id="confirm" class="hide"><div class="mc"><h2>End this match?</h2><p>Your current round and match progress will be discarded. You can start a new match from the operator screen.</p><div class="confirmrow"><button id="cancelquit">Keep playing</button><button id="confirmquit" style="background:#ff4d4d;color:#10151b">End match</button></div></div></div>
@@ -470,7 +197,6 @@ let w=1,d=1,h=3.2,mt=c==='#'?mW:c==='='?mS:mB;
 if(c==='c'){h=1.15;w=d=.96;mt=mC}else{const hz=isW(x-1,z)||isW(x+1,z),vt=isW(x,z-1)||isW(x,z+1);if(hz&&!vt)d=.4;else if(vt&&!hz)w=.4;if(c==='b')h=2.6}
 const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mt);m.position.set(wx(x),h/2,wz(z));m.castShadow=m.receiveShadow=true;grp.add(m);
 P[z*MW+x]={t:c,x,z,hp:c==='#'||c==='c'?1e9:c==='='?80:45,rf:false,elec:false,alive:true,mesh:m,top:h,minX:wx(x)-w/2,maxX:wx(x)+w/2,minZ:wz(z)-d/2,maxZ:wz(z)+d/2}}
-// Furnish each venue with recognizable, solid environmental props.
 const wood=new THREE.MeshStandardMaterial({color:MAP.n==='Farmhouse'?0x70513b:0x554b40,roughness:.82}),metal=new THREE.MeshStandardMaterial({color:0x46515b,metalness:.62,roughness:.46}),fabric=new THREE.MeshStandardMaterial({color:0x34434b,roughness:.95});
 const solid=(x,z,w,h,d,mat,y=0)=>{const cx=wx(x),cz=wz(z),m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(cx,y+h/2,cz);m.castShadow=m.receiveShadow=true;grp.add(m);OB.push({minX:cx-w/2,maxX:cx+w/2,minZ:cz-d/2,maxZ:cz+d/2,top:y+h});return m};
 const table=(x,z,w,d)=>{solid(x,z,w,.12,d,wood,.78);for(const dx of[-1,1])for(const dz of[-1,1])solid(x+dx*(w/2-.1),z+dz*(d/2-.1),.12,.78,.12,metal,0)};
@@ -479,13 +205,11 @@ if(MAP.n==='Farmhouse'){
  [[17.8,10.2],[22.2,10.2],[17.8,11.8],[22.2,11.8]].forEach(([x,z])=>{solid(x,z,.48,.48,.48,fabric,0);solid(x,z,.48,.08,.48,wood,.48)});
  solid(19,5,1.9,.9,.55,wood,0);solid(21,5,.9,.55,.55,fabric,.9);
 }else if(MAP.n==='Bank'){
- // Teller counter and office desks, kept clear of both objective rooms.
  solid(14,9,3.2,.95,.65,wood,0);solid(14,9,3.35,.12,.72,metal,.95);
  solid(26,9,2.6,.82,.6,wood,0);solid(26,9,2.7,.1,.65,metal,.82);
  table(20,10,1.8,.9);solid(20,10,1.15,.38,.12,metal,.9);
 }else if(MAP.n==='Warehouse'){
- // Industrial pallet racking along the central aisle edges.
- for(const x of[15,25]){solid(x,14,.22,2.35,4.6,metal,0);for(const y of[.75,1.55])solid(x,14,.9,.1,4.6,metal,y);for(const z of[12,14,16])solid(x, z,.88,.65,.8,wood,.18)}
+ for(const x of[15,25]){solid(x,14,.22,2.35,4.6,metal,0);for(const y of[.75,1.55])solid(x,14,.9,.1,4.6,metal,y);for(const z of[12,14,16])solid(x,z,.88,.65,.8,wood,.18)}
  for(const z of[17,18])solid(20,z,1.2,.36,1.05,wood,0);
 }
 bomb.visible=false;grp.add(bomb);applyQ();
@@ -513,14 +237,14 @@ function trc(a,b,col=0xfff2c0){const l=new THREE.Line(new THREE.BufferGeometry()
 let AC,MG,NB;
 function au(){if(!AC){AC=new(window.AudioContext||window.webkitAudioContext)();MG=AC.createGain();MG.gain.value=VOL;MG.connect(AC.destination);NB=AC.createBuffer(1,AC.sampleRate*.5,AC.sampleRate);const c=NB.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=Rn()*2-1}AC.resume()}
 function snd(f,t,v,d,ds=0){if(!AC)return;v/=1+ds*.12;const a=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();o.type=t;o.frequency.setValueAtTime(f,a);o.frequency.exponentialRampToValueAtTime(Math.max(30,f*.2),a+d);g.gain.setValueAtTime(v,a);g.gain.exponentialRampToValueAtTime(.001,a+d);o.connect(g);g.connect(MG);o.start(a);o.stop(a+d)}
-function nse(v,d,ds=0,fq=1400){if(!AC)return;v/=1+ds*.12;const a=AC.currentTime,s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=NB;f.type='lowpass';f.frequency.value=fq;g.gain.setValueAtTime(v,a);g.gain.exponentialRampToValueAtTime(.001,a+d);s.connect(f);f.connect(g);g.connect(MG);s.start(a)}
+function nse(v,d,ds=0,fq=1400){if(!AC)return;v/=1+ds*.12;const a=AC.currentTime,s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=NB;f.type='lowpass';f.frequency.value=fq;g.gain.setValueAtTime(v,a);g.gain.exponentialRampToValueAtTime(.001,a+d);s.connect(f);f.connect(g);g.connect(MG);s.start(a);s.stop(a+d)}
 const shotS=(ds=0,big=0)=>{snd(big?110:230,'sawtooth',.28,.1,ds);nse(.3,big?.3:.14,ds)};
 const boom=()=>{snd(90,'sine',.7,.7);nse(.7,.8,0,700);shake=.6};
 let shake=0;
 /* ---------------- UNITS ---------------- */
 const U=[],ITEMS=[],feedL=[];
 const pl={isP:true,side:'A',pos:V(),yaw:0,pitch:0,hp:100,alive:true,eye:1.65,ads:0,adsT:false,crT:false,lean:0,lc:0,slot:1,mag:[0,0],res:[0,0],rel:0,fcd:0,rcP:0,rcY:0,kick:0,bob:0,melee:0,meleeCd:0,drone:false,dp:V(0,.25,0),dyaw:0,dpitch:0,op:OPS[0],pw:'R4C',sw:'P12',opt:'HOLO',gc:0,rf:3,swp:0,spr:false,mvg:false,ping:0,sn:0,surge:0,blind:0,poison:0,poisT:0,root:0};
-const S={map:0,siteChoice:-1,round:1,sp:0,se:0,phase:'MENU',t:0,planted:false,bomb:null,bt:40,df:0,dfn:0,defuser:null,ph:0,plan:0,mode:'menu',paused:false};
+const S={map:0,siteChoice:-1,round:1,sp:0,se:0,phase:'MENU',t:0,planted:false,bomb:null,bt:40,df:0,dfn:0,defuser:null,ph:0,plan:0,mode:'menu',paused:false,netMode:'bot',matchId:null,opponentName:'Bots'};
 function mkAg(op,side){const g=new THREE.Group();g.rotation.order='YXZ';
 const mk=(w,h,d,x,y,z,c,par=g)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color:c,roughness:.7,metalness:.1}));m.position.set(x,y,z);m.castShadow=true;par.add(m);return m};
 const cl=side==='A'?0x2b3b4e:0x4d3b2b,dk=0x14181f,lL=new THREE.Group(),lR=new THREE.Group();lL.position.set(-.13,.85,0);lR.position.set(.13,.85,0);g.add(lL,lR);
@@ -568,7 +292,6 @@ function aiStep(u,dt){u.fcd-=dt;u.rt-=dt;u.sc-=dt;u.mvs=0;if(u.al){u.al.t-=dt;if
 if(u.ping>0)u.ping-=dt;if(u.surge>0)u.surge-=dt;if(u.blind>0)u.blind-=dt;if(u.root>0)u.root-=dt;
 if(u.poison>0){u.poison-=dt;u.poisT-=dt;if(u.poisT<=0){u.poisT=1;dmgU(u,5,{op:{id:'GU'},side:'D'},0)}}
 if(S.phase==='PREP'){u.ty=u.look;return}
-/* Bot active abilities during action phase */
 if(u.botUses>0&&(u.botCd-=dt)<=0){u.botCd=6+Rn()*6;
 if(u.op.id==='FINKA'&&U.some(x=>x.alive&&x.side==='A'&&x.hp<85)){u.botUses--;U.forEach(x=>{if(x.alive&&x.side==='A'){x.hp=Math.min(125,x.hp+25);x.surge=10}});if(pl.side==='A'&&pl.alive)ban('Finka Boost','+25 HP & reduced recoil')}
 else if(u.op.id==='DOKKAEBI'){u.botUses--;U.forEach(x=>{if(x.alive&&x.side==='D'&&!ITEMS.some(it=>it.k==='jam'&&it.t>0&&dist(it.pos,x.pos)<7))x.ping=5});if(pl.side==='D'&&pl.alive)ban('Phone Hacked','Dokkaebi is ringing your phone')}
@@ -604,12 +327,6 @@ else if(['P12','REV','DEAGLE','SMG11'].includes(id)){detail(.045,.035,.13,0,.045
 else if(id==='P90'){detail(.11,.07,.32,0,.095,-.32,0);detail(.17,.055,.23,0,.14,-.34,1);detail(.23,.035,.18,0,.19,-.34,2);animMag=part(.15,.055,.25,0,.04,-.34,0)}
 else if(id==='M249'){detail(.2,.13,.18,0,-.08,-.32,0);detail(.16,.17,.2,0,-.12,-.29,1);detail(.19,.025,.18,0,-.22,-.3,2);detail(.045,.035,.28,0,.04,-.49,1);animSlide=part(.12,.045,.16,0,.09,-.27,1)}
 else{detail(.045,.035,.22,0,.04,-.43,1);detail(.12,.025,.2,0,.005,-.55,0);if(id==='F2'||id==='G36C')detail(.13,.045,.13,0,.075,-.27,1);if(id==='AK12'||id==='R4C'||id==='G36C'||id==='F2'||id==='MP5'||id==='MP7'||id==='VECTOR')detail(.13,.22,.13,0,-.12,-.27,2);if(id==='MP5'||id==='MP7'||id==='VECTOR')detail(.16,.09,.15,0,.12,-.3,0);animSlide=part(.13,.045,.18,0,.09,-.3,1)}
-// Distinct barrel, stock, magazine, and action shapes make weapon classes easier to recognize.
-if(['M590','SPAS12'].includes(id)){detail(.055,.055,.58,.015,-.025,-.52);detail(.18,.13,.2,0,-.01,-.38,0);detail(.12,.09,.22,0,.035,-.29,1)}
-else if(['DMR','MK14'].includes(id)){const tube=new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.2,12),FM[1]);tube.rotation.x=Math.PI/2;tube.position.set(0,.105,-.28);fr.add(tube);detail(.012,.018,.16,0,.145,-.28,2)}
-else if(['P90'].includes(id)){detail(.11,.07,.32,0,.095,-.32,0);detail(.17,.055,.23,0,.14,-.34,1)}
-else if(['P12','REV','DEAGLE','SMG11'].includes(id)){detail(.045,.035,.13,0,.045,-.13,1);if(id==='REV')detail(.13,.1,.12,0,.005,-.24,0);if(id==='DEAGLE')detail(.09,.11,.09,0,.015,-.22,0)}
-else{detail(.045,.035,.22,0,.04,-.43,1);detail(.12,.025,.2,0,.005,-.55,0);if(id==='F2'||id==='G36C')detail(.13,.045,.13,0,.075,-.27,1)}
 const hand=(x,y,z)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(.07,.075,.1),skin);m.position.set(x,y,z);fr.add(m)};hand(.01,-.07,-.12);hand(-.01,-.04,w.a?-.5:-.28);
 optG=new THREE.Group();fr.add(optG);const ob=(a,b,c,x,y,z,col=0x14181f,tr)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(a,b,c),tr?new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.3}):FM[1]);if(!tr&&col!==0x14181f)m.material=new THREE.MeshBasicMaterial({color:col});m.position.set(x,y,z);optG.add(m)};
 if(pl.slot===1&&!w.sh){const o=pl.opt,z=-.2;
@@ -624,6 +341,7 @@ pl.mag[i]--;pl.fcd=60/w.rpm;const ad=pl.ads>.5,rcM=(ad?.6:1)*(pl.crT?.75:1)*(pl.
 shotS(0,w.pel||w.d>55);noiseAt(pl.pos,30,pl.side);const sp=w.sp*(ad?.25:1)*(pl.mvg?1.6:1),o=cam.position.clone(),mz=cam.localToWorld(V(.1,-.08,-.9));
 for(let k=0;k<(w.pel||1);k++){const d=V((Rn()-.5)*sp*2,(Rn()-.5)*sp*2,-1).applyQuaternion(cam.quaternion).normalize(),h=cast(o,d,80,pl.side),e=o.clone().addScaledVector(d,h.t);trc(mz,e);
 if(h.u){dmgU(h.u,w.d*(h.hd?(w.pel?1.5:3):1),pl,h.hd);hm(h.hd);deb(e,0xcc2222,3)}else if(h.p){dmgP(h.p,w.d*.8);deb(e,0x9aa4b2,2)}else deb(e,0x777777,1)}
+sendPeerEvent({kind:'shot',pos:pl.pos,yaw:pl.yaw,pitch:pl.pitch});
 if(pl.mag[i]<=0)reload()}
 function hm(h){const e=$('hm');e.style.opacity=1;e.style.color=h?'#ff4d4d':'#fff';clearTimeout(hm.t);hm.t=setTimeout(()=>e.style.opacity=0,120);snd(h?1900:900,'sine',.2,.1)}
 function reload(){const w=cw(),i=pl.slot-1;if(pl.rel>0||pl.mag[i]>=w.mag||pl.res[i]<=0)return;pl.rel=w.rl;snd(400,'sine',.15,.1)}
@@ -761,14 +479,137 @@ function interact(){if(!pl.alive)return;if(pl.drone){let spotted=0;U.forEach(u=>
 if(S.phase==='PREP'&&pl.side==='D'&&pl.rf>0){let b=null,bd=3.4;P.forEach(p=>{if(p&&p.alive&&p.t==='='&&!p.rf){const d=Math.hypot(p.mesh.position.x-pl.pos.x,p.mesh.position.z-pl.pos.z);if(d<bd){bd=d;b=p}}});if(b){b.rf=true;b.mesh.material=mR;pl.rf--;snd(300,'square',.3,.12)}}}
 function drone(on){if(pl.side!=='A'||!pl.alive)return;pl.drone=on;fp.visible=!on&&pl.alive;$('dr').classList.toggle('hide',!on);if(on){pl.dp.set(pl.pos.x,.25,pl.pos.z-1);pl.dyaw=0;pl.dpitch=0}}
 function endPrep(){if(S.phase!=='PREP')return;S.phase='ACT';S.t=150;if(pl.drone)drone(false);ban('Action phase',pl.side==='A'?'Breach and plant the defuser':'Hold the building');snd(700,'triangle',.25,.3)}
+
+/* ---------------- MATCHMAKING QUEUE + BOT FALLBACK ---------------- */
+const BOT_WAIT_SECONDS=8;
+let ws=null,inQueue=false,qTimer=null,qCountdown=null,qLeft=BOT_WAIT_SECONDS,qReconnects=0,peerUnit=null;
+
+function clearQueue(){
+  inQueue=false;
+  clearTimeout(qTimer);clearInterval(qCountdown);
+  qTimer=null;qCountdown=null;
+  $('queuebox').classList.add('hide');
+  $('go').disabled=false;
+}
+
+function sendPeerEvent(payload){
+  if(S.netMode==='online'&&ws&&ws.readyState===WebSocket.OPEN){
+    ws.send(JSON.stringify({type:'match_event',matchId:S.matchId,payload}));
+  }
+}
+
+function syncPeerUnit(payload){
+  if(!peerUnit||!peerUnit.alive||!peerUnit.m)return;
+  if(payload.kind==='move'){
+    peerUnit.pos.set(payload.x,0,payload.z);
+    peerUnit.yaw=payload.yaw;
+    peerUnit.m.g.position.set(payload.x,0,payload.z);
+    peerUnit.m.g.rotation.y=payload.yaw;
+  }else if(payload.kind==='shot'){
+    const from=V(payload.pos.x,1.5,payload.pos.z);
+    const dir=V(0,0,-1).applyEuler(new THREE.Euler(payload.pitch||0,payload.yaw||0,0,'YXZ')).normalize();
+    trc(from,from.clone().addScaledVector(dir,28),0xff7b7b);
+    shotS(dist(from,pl.pos),0);
+  }
+}
+
+function connectQueueSocket(onOpenJoin){
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  ws=new WebSocket(`${proto}//${location.host}/api/ws`);
+  ws.onopen=()=>{
+    qReconnects=0;
+    if(onOpenJoin&&inQueue&&ws.readyState===WebSocket.OPEN){
+      ws.send(JSON.stringify({type:'join_queue',map:S.map,side:pl.side,op:pl.op.id}));
+    }
+  };
+  ws.onmessage=ev=>{
+    let msg;try{msg=JSON.parse(ev.data)}catch{return}
+    if(msg.type==='queue_update'&&inQueue){
+      $('qsub').textContent=`Bot fallback in ${qLeft}s · Players waiting on node: ${msg.playersInQueue}`;
+    }else if(msg.type==='matched'&&inQueue){
+      clearQueue();
+      beginMatchWithMode('online',msg.matchId,msg.opponent||'Online Player');
+    }else if(msg.type==='peer_event'&&S.netMode==='online'){
+      syncPeerUnit(msg.payload);
+    }
+  };
+  ws.onclose=()=>{
+    if(inQueue||S.netMode==='online'){
+      const delay=Math.min(4000,500*Math.pow(2,qReconnects++));
+      setTimeout(()=>connectQueueSocket(inQueue),delay);
+    }
+  };
+}
+
+function beginMatchWithMode(mode,matchId,opponentName){
+  S.netMode=mode;
+  S.matchId=matchId;
+  S.opponentName=opponentName;
+  startRound();
+  if(mode==='online'){
+    // Replace one opposing bot with a remote-synced peer agent while keeping remaining slots active
+    const oppSide=pl.side==='A'?'D':'A';
+    const candidate=U.find(u=>!u.isP&&u.side===oppSide&&u.alive);
+    if(candidate){
+      candidate.isPeer=true;
+      peerUnit=candidate;
+    }
+    ban('Online Match Found',`Connected with ${opponentName}`);
+  }else{
+    peerUnit=null;
+    ban('Bot Match Started','No online opponent found — filling with bots');
+  }
+}
+
+function startQueueOrBotFallback(){
+  if(inQueue)return;
+  const op=OPS.find(o=>o.id===selOp);
+  pl.op=op;pl.pw=$('sp').value;pl.sw=$('ss').value;pl.opt=$('so').value;
+  inQueue=true;
+  qLeft=BOT_WAIT_SECONDS;
+  $('go').disabled=true;
+  $('queuebox').classList.remove('hide');
+  $('qtitle').textContent='Searching for online match...';
+  $('qsub').textContent=`Bot fallback in ${qLeft}s`;
+
+  if(!ws||ws.readyState===WebSocket.CLOSED){
+    connectQueueSocket(true);
+  }else if(ws.readyState===WebSocket.OPEN){
+    ws.send(JSON.stringify({type:'join_queue',map:S.map,side:pl.side,op:pl.op.id}));
+  }
+
+  qCountdown=setInterval(()=>{
+    qLeft-=1;
+    if(inQueue&&qLeft>0){
+      $('qsub').textContent=`Bot fallback in ${qLeft}s`;
+    }
+  },1000);
+
+  qTimer=setTimeout(()=>{
+    if(!inQueue)return;
+    if(ws&&ws.readyState===WebSocket.OPEN){
+      ws.send(JSON.stringify({type:'leave_queue'}));
+    }
+    clearQueue();
+    beginMatchWithMode('bot','bot_'+Math.random().toString(36).slice(2,7),'Bots');
+  },BOT_WAIT_SECONDS*1000);
+}
+
+$('qcancel').onclick=()=>{
+  if(!inQueue)return;
+  if(ws&&ws.readyState===WebSocket.OPEN){
+    ws.send(JSON.stringify({type:'leave_queue'}));
+  }
+  clearQueue();
+};
+
 /* ---------------- ROUND FLOW ---------------- */
 function startRound(){
-build(S.map);U.forEach(u=>u.m&&sc.remove(u.m.g));U.length=0;ITEMS.forEach(i=>sc.remove(i.m));ITEMS.length=0;
+build(S.map);U.forEach(u=>u.m&&sc.remove(u.m.g));U.length=0;ITEMS.forEach(i=>sc.remove(i.m));ITEMS.length=0;peerUnit=null;
 S.phase='PREP';S.t=30;S.planted=false;S.bomb=null;S.df=0;S.defuser=null;S.ph=0;S.plan=S.siteChoice<0?(Rn()<.5?0:1):S.siteChoice;S.mode='play';S.paused=false;
 const cell=a=>V(wx(a[0]),0,wz(a[1]));
 for(const side of['A','D']){const sp=side==='A'?MAP.A:MAP.D,pool=OPS.filter(o=>o.s===side&&o!==pl.op).sort(()=>Rn()-.5);
 for(let i=0;i<5;i++){if(side===pl.side&&i===2){pl.pos.copy(cell(sp[i]));U.push(pl);continue}U.push(mkU(pool[i%pool.length],side,cell(sp[i]),i))}}
-/* Bot defender prep setup */
 const soft=P.filter(p=>p&&p.t==='=');
 U.forEach(u=>{if(!u.isP&&u.side==='D'){
   soft.filter(p=>!p.rf).sort((a,b)=>Math.hypot(a.mesh.position.x-u.pos.x,a.mesh.position.z-u.pos.z)-Math.hypot(b.mesh.position.x-u.pos.x,b.mesh.position.z-u.pos.z)).slice(0,2).forEach(p=>{p.rf=true;p.mesh.material=mR});
@@ -799,11 +640,11 @@ $('mapinfo').innerHTML=`<b>${MAP.n}</b> · ${MAP.W} × ${MAP.H} tactical layout<
 $('mapb').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.map=+b.dataset.m;build(S.map);menuTab='maps';menu(true)});
 $('sideb').innerHTML='<span style="align-self:center;color:#8da0b5">Start as</span>'+['A','D'].map(s=>`<button class="${pl.side===s?'on':''}" data-s="${s}">${s==='A'?'Attackers':'Defenders'}</button>`).join('');
 $('sideb').querySelectorAll('button').forEach(b=>b.onclick=()=>{pl.side=b.dataset.s;menu(true)})}}
-$('go').onclick=()=>{au();const op=OPS.find(o=>o.id===selOp);pl.op=op;pl.pw=$('sp').value;pl.sw=$('ss').value;pl.opt=$('so').value;startRound()};
-$('eb').onclick=()=>{if($('eb').dataset.done){S.sp=S.se=0;S.round=1;menuTab='ops';menu(true)}else{S.round++;pl.side=pl.side==='A'?'D':'A';menuTab='ops';menu(false)}};
+$('go').onclick=()=>{au();startQueueOrBotFallback()};
+$('eb').onclick=()=>{if($('eb').dataset.done){S.sp=S.se=0;S.round=1;S.netMode='bot';menuTab='ops';menu(true)}else{S.round++;pl.side=pl.side==='A'?'D':'A';menuTab='ops';menu(false)}};
 $('resume').onclick=()=>{$('c').requestPointerLock()};
 $('quitmatch').onclick=()=>{$('confirm').classList.remove('hide')};$('cancelquit').onclick=()=>{$('confirm').classList.add('hide')};
-$('confirmquit').onclick=()=>{if(document.pointerLockElement)document.exitPointerLock();S.sp=S.se=0;S.round=1;S.mode='menu';S.phase='MENU';S.paused=false;recordingBind=null;$('confirm').classList.add('hide');$('pause').classList.add('hide');$('hud').classList.add('hide');menuTab='ops';menu(true)};
+$('confirmquit').onclick=()=>{if(document.pointerLockElement)document.exitPointerLock();S.sp=S.se=0;S.round=1;S.netMode='bot';S.mode='menu';S.phase='MENU';S.paused=false;recordingBind=null;$('confirm').classList.add('hide');$('pause').classList.add('hide');$('hud').classList.add('hide');menuTab='ops';menu(true)};
 setPauseTab('settings');
 document.addEventListener('pointerlockchange',()=>{if(document.pointerLockElement===$('c')){S.paused=false;$('pause').classList.add('hide')}else if(S.mode==='play'&&S.phase!=='END'){S.paused=true;Mo.l=0;Mo.r=0;$('pause').classList.remove('hide')}});
 let bt_;function ban(t,s){$('bt').textContent=t;$('bs').textContent=s;$('ban').style.opacity=1;clearTimeout(bt_);bt_=setTimeout(()=>$('ban').style.opacity=0,3200)}
@@ -827,6 +668,7 @@ addEventListener('mouseup',e=>{if(e.button===0)Mo.l=0;if(e.button===2)Mo.r=0});
 addEventListener('wheel',e=>{if(S.mode==='play'&&!S.paused&&pl.alive&&!pl.drone&&pl.rel<=0)sw(e.deltaY>0?2:1)},{passive:true});
 addEventListener('contextmenu',e=>e.preventDefault());
 /* ---------------- PLAYER UPDATE ---------------- */
+let netSyncT=0;
 function upP(dt){
 if(!pl.alive){const t=U.find(u=>u.alive&&u.side===pl.side&&!u.isP);if(t){cam.position.set(t.pos.x,1.6,t.pos.z);cam.rotation.set(0,t.yaw+Math.PI,0)}return}
 if(pl.surge>0)pl.surge-=dt;
@@ -842,7 +684,8 @@ if(Mo.l&&cw().a)fire();
 if(ADS_MODE==='HOLD')pl.adsT=!!Mo.r||down('aim');pl.spr=!!(down('sprint')&&down('forward')&&!pl.adsT&&!pl.crT&&pl.rel<=0&&pl.root<=0);pl.meleeCd=Math.max(0,pl.meleeCd-dt);pl.melee=Math.max(0,pl.melee-dt);
 const canMove=(S.phase!=='PREP'||pl.side==='D')&&pl.root<=0,sp=(pl.crT?2.6:pl.spr?6.4:pl.adsT?3.2:4.4)*pl.op.sp*(pl.surge>0?1.12:1);
 if(canMove&&moving){pl.pos.x+=mv.x*sp*dt;pl.pos.z+=mv.z*sp*dt;res(pl.pos,.36);pl.bob+=dt*sp*1.5;if(pl.spr){pl.sn-=dt;if(pl.sn<=0){pl.sn=.5;noiseAt(pl.pos,9,pl.side)}}}else pl.mvg=false;
-/* Electrified wall proximity shock for attackers */
+netSyncT-=dt;
+if(netSyncT<=0){netSyncT=.08;sendPeerEvent({kind:'move',x:pl.pos.x,z:pl.pos.z,yaw:pl.yaw})}
 if(pl.side==='A'){const cx=Math.floor(pl.pos.x+MW/2),cz=Math.floor(pl.pos.z+MH/2);for(let z=cz-1;z<=cz+1;z++)for(let x=cx-1;x<=cx+1;x++){const q=P[z*MW+x];if(q&&q.alive&&q.elec&&Math.hypot(pl.pos.x-q.mesh.position.x,pl.pos.z-q.mesh.position.z)<.85){pl.sn-=dt;if(pl.sn<=0){pl.sn=.6;dmgU(pl,8,'SHOCK WIRE',0);ban('Electrified wall!','Step back from Bandit shock wire')}}}}
 pl.eye=THREE.MathUtils.lerp(pl.eye,pl.crT?1.1:1.65,Math.min(1,12*dt));
 pl.lean=(down('leanRight')?1:0)-(down('leanLeft')?1:0);pl.lc=THREE.MathUtils.lerp(pl.lc,pl.lean,Math.min(1,12*dt));
@@ -850,14 +693,12 @@ pl.rcP=THREE.MathUtils.lerp(pl.rcP,0,Math.min(1,12*dt));pl.rcY=THREE.MathUtils.l
 shake=Math.max(0,shake-dt*1.4);
 const lo=rt.clone().multiplyScalar(pl.lc*.42);cam.position.set(pl.pos.x+lo.x+(Rn()-.5)*shake*.2,pl.eye+(Rn()-.5)*shake*.2,pl.pos.z+lo.z);
 cam.rotation.set(CL(pl.pitch+pl.rcP,-1.5,1.5),pl.yaw+pl.rcY,-pl.lc*.17);
-/* ADS: optic is aligned with the camera axis; magnified optics fade in a scope overlay */
 const o=OPT[pl.opt],w=cw(),mag=pl.slot===1&&o.mag&&!w.sh,tg=pl.adsT&&!pl.spr&&pl.rel<=0&&pl.swp<.1?1:0;
 pl.ads=THREE.MathUtils.lerp(pl.ads,tg,Math.min(1,16*dt));
 const fv=pl.slot===1&&!w.sh?o.fov:64;cam.fov=THREE.MathUtils.lerp(cam.fov,BF+(fv*BF/75-BF)*pl.ads,Math.min(1,16*dt));cam.updateProjectionMatrix();
 const sh=w.sh||.075,ADS=V(0,-sh,.02),sd=Math.sin(pl.swp/.3*Math.PI)*.2;
 fp.position.lerpVectors(HIP,ADS,pl.ads);fp.position.x+=Math.cos(pl.bob*.5)*.005*(1-pl.ads);fp.position.y+=-Math.abs(Math.sin(pl.bob))*.006*(1-pl.ads)-(pl.rel>0?.07:0)-sd;fp.position.z+=pl.kick;
 fp.rotation.set((pl.spr?-.4:pl.kick*1.6)-sd*2,pl.spr?.5:0,0);
-// Layered weapon motion: walk sway, sprint bounce, reload handling, and a brief swap settle.
 const gait=moving?Math.sin(pl.bob*1.15):0,reloadT=pl.rel>0?1-pl.rel/cw().rl:0,swapT=pl.swp>0?pl.swp/.3:0;
 fr.position.x=Math.sin(pl.bob*.5)*.012*(1-pl.ads)+pl.lc*.035;
 fr.position.y=-Math.abs(gait)*.012*(1-pl.ads)-(pl.spr?.045:0)+Math.sin(reloadT*Math.PI)*.055+swapT*.09;
@@ -875,7 +716,6 @@ scopeEl.classList.toggle('hide',!scopeOn);['acog','holo','ref','iron'].forEach(k
 $('ch').style.opacity=pl.ads>.2?0:1;
 const dt_=$('dot');dt_.classList.toggle('hide',!(pl.ads>.85&&!scopeOn));
 if(pl.ads>.85&&!scopeOn){const c=pl.opt==='ACOG'&&mag?'width:6px;height:6px;background:#ff3a3a;box-shadow:0 0 6px #f33':pl.opt==='HOLO'&&!w.sh?'width:34px;height:34px;border:2px solid #ff3a3a;box-shadow:0 0 8px #f33;background:radial-gradient(#f33 0 2px,transparent 3px)':pl.opt==='REF'&&!w.sh?'width:6px;height:6px;background:#3fff8a;box-shadow:0 0 6px #3f8':'width:3px;height:3px;background:#f2a93b';dt_.style.cssText=c}
-/* interaction */
 let pt='',pg=-1;
 if(S.phase==='ACT'&&pl.side==='A'&&!S.planted){const si=MAP.S.findIndex(s=>inRect(pl.pos,s));if(si>=0){pt=`Hold [${keyLabel(BIND.interact)}] to plant the defuser`;pg=0;if(down('interact')){S.ph+=dt;if(S.ph>=4)plant(pl.pos)}else S.ph=Math.max(0,S.ph-dt*2);pg=S.ph/4}else S.ph=0}
 if(S.planted&&pl.side==='D'&&dist(pl.pos,S.bomb)<2.2){pt=`Hold [${keyLabel(BIND.interact)}] to defuse`;if(down('interact'))S.dfn=1;pg=S.df/7}
@@ -907,10 +747,9 @@ function loop(now){requestAnimationFrame(loop);let dt=Math.min(.05,(now-last)/10
 if(S.mode==='play'&&!S.paused){
 if(S.phase==='PREP'){S.t-=dt;if(S.t<=0)endPrep()}else if(S.phase==='ACT'){S.t-=dt;if(S.t<=0)end('D','Time expired: defenders hold')}else if(S.phase==='PLANT'){S.bt-=dt;if(S.bt<=0){boom();end('A','The defuser detonated')}}
 S.dfn=0;upP(dt);if(S.planted&&(!S.defuser||!S.defuser.alive))pickDefuser();
-for(const u of U){if(u.isP||!u.alive||S.phase==='END')continue;aiStep(u,dt);let df=u.ty-u.yaw;df=Math.atan2(Math.sin(df),Math.cos(df));u.yaw+=CL(df,-9*dt,9*dt);const g=u.m.g;g.position.set(u.pos.x,0,u.pos.z);g.rotation.y=u.yaw;const sw_=Math.sin(now/110)*(u.mvs>0?.7:0);u.m.lL.rotation.x=sw_;u.m.lR.rotation.x=-sw_}
+for(const u of U){if(u.isP||u.isPeer||!u.alive||S.phase==='END')continue;aiStep(u,dt);let df=u.ty-u.yaw;df=Math.atan2(Math.sin(df),Math.cos(df));u.yaw+=CL(df,-9*dt,9*dt);const g=u.m.g;g.position.set(u.pos.x,0,u.pos.z);g.rotation.y=u.yaw;const sw_=Math.sin(now/110)*(u.mvs>0?.7:0);u.m.lL.rotation.x=sw_;u.m.lR.rotation.x=-sw_}
 if(S.planted&&S.phase==='PLANT'){if(S.dfn)S.df+=dt;else S.df=Math.max(0,S.df-dt*.5);if(S.df>=7)end('D','Defuser disabled');bomb.led.visible=(now/(S.bt<10?120:400)|0)%2===0}
 ITEMS.forEach(it=>{if(it.t<=0){if(it.m.parent)sc.remove(it.m);return}it.t-=dt;
-/* Cloaked Gu mine visibility vs side */
 if(it.k==='gu')it.m.visible=pl.side==='D'||dist(pl.pos,it.pos)<2.5;
 if(it.k==='trap')U.forEach(u=>{if(u.alive&&u.side==='A'&&dist(u.pos,it.pos)<1.2){it.t=0;boom();dmgU(u,70,'EDD TRAP',0);if(u.isP)ban('EDD Trap detonated!','-70 HP from Kapkan laser mine')}});
 if(it.k==='gu')U.forEach(u=>{if(u.alive&&u.side==='A'&&dist(u.pos,it.pos)<1.1){it.t=0;snd(950,'sine',.35,.2);dmgU(u,20,'GU MINE',0);u.poison=4;u.poisT=1;u.ping=4;if(u.isP)ban('Stepped on Gu Mine!','Taking toxic damage over 4s')}});
