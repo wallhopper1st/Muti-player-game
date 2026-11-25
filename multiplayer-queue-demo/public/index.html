@@ -113,7 +113,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <div class="title-hero">
     <div class="tag">5V5 TACTICAL BREACH · MULTIPLAYER &amp; TRAINING</div>
     <h1>SIEGE<b>PROTOCOL</b></h1>
-    <p>Reinforce walls, clear angles, breach objectives, and plant or defuse under pressure. Jump into public rooms, create a custom room, or warm up in bot training.</p>
+    <p>Reinforce walls, clear angles, breach objectives, and plant or defuse under pressure. Jump into live public rooms, host a room, or warm up in bot training.</p>
     <div class="title-actions">
       <button id="title-play" class="btn-main" type="button">Play Multiplayer</button>
       <button id="title-train" class="btn-train" type="button">Training (Bots)</button>
@@ -180,7 +180,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
       <button id="createroom" type="button">Create &amp; Host</button>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-      <span style="color:#9fb1c4">Open Public Rooms — anyone can join directly</span>
+      <span style="color:#9fb1c4">Live Public Rooms — only rooms hosted by active players appear here</span>
       <button id="refresh-rooms" type="button">Refresh List</button>
     </div>
     <div class="room-list" id="public-room-list"></div>
@@ -279,19 +279,97 @@ const OPS=[
 {id:'FROST',s:'D',c:0x7dd3fc,g:'Welcome Mat',n:3,d:'Snare trap. Places a heavy mechanical trap that deals 75 damage, roots the attacker for 2.5s, and pings their location.',p:['MP5','SPAS12','G36C'],q:['P12','REV'],sp:1},
 {id:'MIRA',s:'D',c:0xfb7185,g:'Black Mirror',n:2,d:'Breach anchor. Blows a tactical murder-hole viewport through a soft wall in front of you for clean sightlines.',p:['VECTOR','SPAS12'],q:['DEAGLE','P12'],sp:.9}
 ];
+
+/* 1:1-inspired architectural floorplans for Farmhouse, Bank, and Warehouse */
 const MAPS=[
-{n:'Farmhouse',W:40,H:28,sky:0x222c3b,wl:0xcdbfa3,gr:0x3c4a33,bd:[6,2,33,16],L:[[10,5],[20,6],[30,6],[10,13],[20,12],[30,13]],
-S:[{n:'SITE A · DORM',x1:7,z1:3,x2:13,z2:8},{n:'SITE B · DINING',x1:26,z1:10,x2:32,z2:15}],
-A:[[15,24],[17,25],[19,24],[21,25],[23,24]],D:[[10,5],[21,5],[17,6],[29,12],[20,13]],
-b(R,O){O('#',0,0,39,27);O('#',6,2,33,16);R('=',14,3,14,15);R('=',25,3,25,15);R('=',7,9,13,9);R('=',26,9,32,9);R('=',18,2,21,2);R('=',8,16,12,16);R('=',27,16,31,16);R('b',14,6,14,6);R('.',14,12,14,12);R('.',25,5,25,5);R('b',25,13,25,13);R('.',10,9,10,9);R('b',29,9,29,9);R('b',19,16,20,16);R('.',23,16,23,16);R('b',6,12,6,12);R('b',33,5,33,5);R('c',18,7,19,8);R('c',20,12,21,12);R('c',10,20,11,21);R('c',28,20,29,21);R('c',3,8,3,10);R('c',36,6,36,8)}},
-{n:'Bank',W:40,H:28,sky:0x141a26,wl:0xb8b4a8,gr:0x30343a,bd:[4,2,35,19],L:[[8,6],[30,6],[20,6],[10,14],[20,15],[30,15]],
-S:[{n:'SITE A · VAULT',x1:17,z1:4,x2:22,z2:8},{n:'SITE B · TELLER HALL',x1:6,z1:12,x2:14,z2:17}],
-A:[[15,24],[17,25],[20,24],[23,25],[25,24]],D:[[19,6],[21,7],[10,15],[29,14],[20,13]],
-b(R,O){O('#',0,0,39,27);O('#',4,2,35,19);O('=',16,3,23,9);R('b',19,9,20,9);R('=',5,11,15,11);R('=',24,11,34,11);R('.',9,11,10,11);R('b',29,11,29,11);R('=',16,12,16,18);R('.',16,15,16,16);R('=',23,12,23,18);R('b',23,15,23,15);R('.',19,19,20,19);R('b',9,19,9,19);R('b',30,19,30,19);R('=',12,19,14,19);R('c',9,6,9,6);R('c',12,4,12,4);R('c',27,6,27,6);R('c',31,4,31,4);R('c',8,15,8,15);R('c',28,15,28,15);R('c',12,22,13,22);R('c',27,22,28,22)}},
-{n:'Warehouse',W:40,H:28,sky:0x1a2230,wl:0x8b8f94,gr:0x2f3335,bd:[3,2,36,20],L:[[8,6],[31,6],[20,5],[10,14],[29,14],[20,16]],
-S:[{n:'SITE A · WEST OFFICE',x1:6,z1:5,x2:11,z2:8},{n:'SITE B · EAST OFFICE',x1:28,z1:5,x2:33,z2:8}],
-A:[[16,24],[18,25],[20,24],[22,25],[24,24]],D:[[8,6],[10,7],[30,6],[32,7],[20,7]],
-b(R,O){O('#',0,0,39,27);O('#',3,2,36,20);O('=',5,4,12,9);R('b',8,9,8,9);R('.',12,7,12,7);O('=',27,4,34,9);R('b',31,9,31,9);R('.',27,7,27,7);R('=',19,3,20,5);R('c',9,12,12,13);R('c',27,12,30,13);R('c',17,9,22,10);R('c',6,16,8,16);R('c',31,16,33,16);R('c',14,15,15,17);R('c',24,15,25,17);R('.',18,20,21,20);R('b',8,20,8,20);R('b',32,20,32,20);R('=',13,20,15,20);R('=',25,20,27,20);R('c',10,23,11,23);R('c',28,23,29,23)}}];
+{n:'Farmhouse',W:40,H:28,sky:0x232e3e,wl:0xd2c4a8,gr:0x3d4d34,bd:[5,2,34,17],L:[[9,5],[19,5],[29,5],[9,13],[19,12],[29,13]],
+S:[{n:'SITE A · MASTER BEDROOM',x1:6,z1:3,x2:12,z2:8},{n:'SITE B · DINING ROOM',x1:26,z1:10,x2:33,z2:15}],
+A:[[13,24],[16,25],[19,24],[22,25],[25,24]],D:[[9,5],[19,5],[16,7],[29,12],[19,13]],
+b(R,O){
+  O('#',0,0,39,27);O('#',5,2,34,17);
+  /* Interior structural wings & hallway spine */
+  R('=',13,3,13,16);R('=',25,3,25,16);
+  R('=',6,9,12,9);R('=',26,9,33,9);
+  R('=',14,10,24,10);
+  /* Doorways & soft breach panels */
+  R('.',13,6,13,6);R('b',13,13,13,13);
+  R('.',25,5,25,5);R('b',25,13,25,13);
+  R('.',9,9,9,9);R('b',29,9,29,9);
+  R('.',19,10,19,10);R('b',18,17,19,17);R('.',22,17,22,17);
+  R('b',5,12,5,12);R('b',34,6,34,6);
+  /* Cover & room furniture */
+  R('c',18,6,20,7);R('c',17,13,21,14);
+  R('c',8,21,10,22);R('c',29,21,31,22);R('c',2,8,2,10);R('c',37,6,37,8);
+},
+props(solid,table){
+  /* Master bedroom bed & dresser */
+  solid(8.2,4.2,1.6,.55,2.1,new THREE.MeshStandardMaterial({color:0x6b4c38,roughness:.85}),0);
+  solid(8.2,4.2,1.4,.18,.6,new THREE.MeshStandardMaterial({color:0xd8d2c7,roughness:.9}),.55);
+  /* Dining table & chairs */
+  table(29.5,12.5,2.9,1.4);
+  for(const dx of[-1.1,0,1.1])for(const dz of[-.95,.95])solid(29.5+dx,12.5+dz,.45,.45,.45,new THREE.MeshStandardMaterial({color:0x3a4954,roughness:.9}),0);
+  /* Hallway credenza & exterior sandbag cover */
+  solid(19.5,11.2,1.8,.85,.5,new THREE.MeshStandardMaterial({color:0x5c412e,roughness:.8}),0);
+  solid(19.5,23.5,2.2,.75,.7,new THREE.MeshStandardMaterial({color:0x5a6354,roughness:.95}),0);
+}},
+{n:'Bank',W:40,H:28,sky:0x141b29,wl:0xbab6aa,gr:0x2e343d,bd:[4,2,35,19],L:[[8,5],[20,6],[31,5],[9,15],[20,15],[31,15]],
+S:[{n:'SITE A · LOCKERS / VAULT',x1:17,z1:3,x2:22,z2:8},{n:'SITE B · TELLER HALL',x1:5,z1:12,x2:14,z2:17}],
+A:[[14,24],[17,25],[20,24],[23,25],[26,24]],D:[[19,5],[21,7],[9,15],[30,14],[20,13]],
+b(R,O){
+  O('#',0,0,39,27);O('#',4,2,35,19);
+  /* Vault room & lobby partition walls */
+  O('=',16,3,23,9);R('b',19,9,20,9);
+  R('=',5,11,15,11);R('=',24,11,34,11);
+  R('.',9,11,10,11);R('b',29,11,29,11);
+  R('=',16,12,16,18);R('.',16,15,16,16);
+  R('=',23,12,23,18);R('b',23,15,23,15);
+  R('.',19,19,20,19);R('b',9,19,9,19);R('b',30,19,30,19);
+  R('=',12,19,14,19);
+  /* Pillars, desks & lobby cover */
+  R('c',8,6,8,6);R('c',12,4,12,4);R('c',27,6,27,6);R('c',31,4,31,4);
+  R('c',8,15,8,15);R('c',28,15,28,15);
+  R('c',11,22,13,22);R('c',27,22,29,22);
+},
+props(solid,table){
+  const steel=new THREE.MeshStandardMaterial({color:0x4b5563,metalness:.75,roughness:.35});
+  const oak=new THREE.MeshStandardMaterial({color:0x594230,roughness:.8});
+  /* Teller counter & security glass divider */
+  solid(13.5,9.6,3.2,.95,.65,oak,0);
+  solid(13.5,9.6,3.35,.1,.72,steel,.95);
+  solid(26.5,9.6,2.6,.85,.6,oak,0);
+  /* Vault deposit shelves */
+  solid(18,4.2,.7,2.4,1.6,steel,0);
+  solid(21.8,4.2,.7,2.4,1.6,steel,0);
+  table(20,10.2,1.8,.85);
+}},
+{n:'Warehouse',W:40,H:28,sky:0x192332,wl:0x8c9299,gr:0x2c3238,bd:[3,2,36,20],L:[[8,6],[31,6],[20,5],[10,14],[29,14],[20,16]],
+S:[{n:'SITE A · WEST STORAGE',x1:5,z1:4,x2:11,z2:8},{n:'SITE B · EAST STORAGE',x1:28,z1:4,x2:34,z2:8}],
+A:[[15,24],[18,25],[20,24],[22,25],[25,24]],D:[[8,6],[10,7],[30,6],[32,7],[20,7]],
+b(R,O){
+  O('#',0,0,39,27);O('#',3,2,36,20);
+  /* West & East storage bays plus central office */
+  O('=',4,3,12,9);R('b',8,9,8,9);R('.',12,7,12,7);
+  O('=',27,3,35,9);R('b',31,9,31,9);R('.',27,7,27,7);
+  O('=',17,3,22,7);R('b',19,7,20,7);
+  /* Industrial racking & crates */
+  R('c',9,12,12,13);R('c',27,12,30,13);R('c',17,10,22,10);
+  R('c',6,16,8,16);R('c',31,16,33,16);
+  R('c',14,15,15,17);R('c',24,15,25,17);
+  R('.',18,20,21,20);R('b',8,20,8,20);R('b',32,20,32,20);
+  R('=',13,20,15,20);R('=',25,20,27,20);
+  R('c',10,23,11,23);R('c',28,23,29,23);
+},
+props(solid){
+  const rack=new THREE.MeshStandardMaterial({color:0x4a5568,metalness:.65,roughness:.45});
+  const crate=new THREE.MeshStandardMaterial({color:0x7c5838,roughness:.85});
+  for(const x of[15,25]){
+    solid(x,14,.25,2.5,4.8,rack,0);
+    for(const y of[.75,1.55])solid(x,14,.95,.1,4.8,rack,y);
+    for(const z of[12,14,16])solid(x,z,.88,.68,.82,crate,.18);
+  }
+  solid(19.5,4.5,1.8,.85,.7,crate,0);
+  solid(20,17.5,1.3,.45,1.1,crate,0);
+}}];
 
 const SHOP_ITEMS=[
   {id:'out_slate',cat:'clothes',n:'Tactical Slate',desc:'Standard breach fatigues.',cost:0,cur:'ren',hex:0x2b3b4e,css:'linear-gradient(135deg,#2b3b4e,#4d3b2b)'},
@@ -308,7 +386,7 @@ const SHOP_ITEMS=[
   {id:'ch_medkit',cat:'charms',n:'Field Medkit',desc:'Start rounds with +10 bonus HP.',cost:300,cur:'crd',hex:0x059669,css:'linear-gradient(135deg,#064e3b,#34d399)'}
 ];
 
-/* ---------------- WALLET & PUBLIC ROOMS ---------------- */
+/* ---------------- WALLET & LIVE PUBLIC ROOMS (NO FAKE ROOMS) ---------------- */
 const profile={
   ren:1500,
   crd:500,
@@ -317,7 +395,7 @@ const profile={
   skin:'cam_gunmetal',
   charm:'ch_none'
 };
-const ROOM_KEY='siege_protocol_public_rooms_v1';
+const ROOM_KEY='siege_protocol_live_rooms_v2';
 const chan=typeof BroadcastChannel!=='undefined'?new BroadcastChannel('siege_protocol_net'):null;
 
 function getOutfit(){return SHOP_ITEMS.find(x=>x.id===profile.outfit)||SHOP_ITEMS[0]}
@@ -337,32 +415,33 @@ function loadPublicRooms(){
   let list=[];
   try{list=JSON.parse(localStorage.getItem(ROOM_KEY)||'[]')}catch{}
   const now=Date.now();
-  list=list.filter(r=>r && now-(r.updated||0)<1000*60*45);
-  if(!list.length){
-    list=[
-      {code:'HOUSE1',name:'Farmhouse Casual',map:0,side:'A',isPublic:true,players:1,maxPlayers:10,updated:now},
-      {code:'VAULT2',name:'Bank Vault Breach',map:1,side:'D',isPublic:true,players:2,maxPlayers:10,updated:now},
-      {code:'WARE99',name:'Warehouse Scrim',map:2,side:'A',isPublic:true,players:1,maxPlayers:10,updated:now}
-    ];
-    localStorage.setItem(ROOM_KEY,JSON.stringify(list));
-  }
+  list=list.filter(r=>r && r.isPublic && now-(r.updated||0)<1000*60*10);
+  localStorage.setItem(ROOM_KEY,JSON.stringify(list));
   return list;
 }
 
 function savePublicRoom(room){
-  if(!room.isPublic)return;
   const list=loadPublicRooms().filter(r=>r.code!==room.code);
-  list.unshift({...room,updated:Date.now()});
+  if(room.isPublic){
+    list.unshift({...room,updated:Date.now()});
+  }
   localStorage.setItem(ROOM_KEY,JSON.stringify(list.slice(0,24)));
   if(chan)chan.postMessage({type:'rooms_updated'});
 }
 
+function removePublicRoom(code){
+  if(!code)return;
+  const list=loadPublicRooms().filter(r=>r.code!==code);
+  localStorage.setItem(ROOM_KEY,JSON.stringify(list));
+  if(chan)chan.postMessage({type:'rooms_updated'});
+}
+
 function renderPublicRooms(){
-  const rooms=loadPublicRooms().filter(r=>r.isPublic);
+  const rooms=loadPublicRooms();
   const el=$('public-room-list');
   if(!el)return;
   if(!rooms.length){
-    el.innerHTML='<div class="room-item"><span style="color:#8da0b5">No public rooms open right now. Create one above!</span></div>';
+    el.innerHTML='<div class="room-item"><span style="color:#8da0b5">No live public rooms right now. Enter a room name or code above and click Create &amp; Host.</span></div>';
     return;
   }
   el.innerHTML=rooms.map(r=>`
@@ -475,21 +554,10 @@ let w=1,d=1,h=3.2,mt=c==='#'?mW:c==='='?mS:mB;
 if(c==='c'){h=1.15;w=d=.96;mt=mC}else{const hz=isW(x-1,z)||isW(x+1,z),vt=isW(x,z-1)||isW(x,z+1);if(hz&&!vt)d=.4;else if(vt&&!hz)w=.4;if(c==='b')h=2.6}
 const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mt);m.position.set(wx(x),h/2,wz(z));m.castShadow=m.receiveShadow=true;grp.add(m);
 P[z*MW+x]={t:c,x,z,hp:c==='#'||c==='c'?1e9:c==='='?80:45,rf:false,elec:false,alive:true,mesh:m,top:h,minX:wx(x)-w/2,maxX:wx(x)+w/2,minZ:wz(z)-d/2,maxZ:wz(z)+d/2}}
-const wood=new THREE.MeshStandardMaterial({color:MAP.n==='Farmhouse'?0x70513b:0x554b40,roughness:.82}),metal=new THREE.MeshStandardMaterial({color:0x46515b,metalness:.62,roughness:.46}),fabric=new THREE.MeshStandardMaterial({color:0x34434b,roughness:.95});
+const wood=new THREE.MeshStandardMaterial({color:MAP.n==='Farmhouse'?0x70513b:0x554b40,roughness:.82}),metal=new THREE.MeshStandardMaterial({color:0x46515b,metalness:.62,roughness:.46});
 const solid=(x,z,w,h,d,mat,y=0)=>{const cx=wx(x),cz=wz(z),m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);m.position.set(cx,y+h/2,cz);m.castShadow=m.receiveShadow=true;grp.add(m);OB.push({minX:cx-w/2,maxX:cx+w/2,minZ:cz-d/2,maxZ:cz+d/2,top:y+h});return m};
 const table=(x,z,w,d)=>{solid(x,z,w,.12,d,wood,.78);for(const dx of[-1,1])for(const dz of[-1,1])solid(x+dx*(w/2-.1),z+dz*(d/2-.1),.12,.78,.12,metal,0)};
-if(MAP.n==='Farmhouse'){
- table(20,11,2.8,1.35);solid(20,11,.65,.12,.65,wood,.92);
- [[17.8,10.2],[22.2,10.2],[17.8,11.8],[22.2,11.8]].forEach(([x,z])=>{solid(x,z,.48,.48,.48,fabric,0);solid(x,z,.48,.08,.48,wood,.48)});
- solid(19,5,1.9,.9,.55,wood,0);solid(21,5,.9,.55,.55,fabric,.9);
-}else if(MAP.n==='Bank'){
- solid(14,9,3.2,.95,.65,wood,0);solid(14,9,3.35,.12,.72,metal,.95);
- solid(26,9,2.6,.82,.6,wood,0);solid(26,9,2.7,.1,.65,metal,.82);
- table(20,10,1.8,.9);solid(20,10,1.15,.38,.12,metal,.9);
-}else if(MAP.n==='Warehouse'){
- for(const x of[15,25]){solid(x,14,.22,2.35,4.6,metal,0);for(const y of[.75,1.55])solid(x,14,.9,.1,4.6,metal,y);for(const z of[12,14,16])solid(x,z,.88,.65,.8,wood,.18)}
- for(const z of[17,18])solid(20,z,1.2,.36,1.05,wood,0);
-}
+if(MAP.props)MAP.props(solid,table);
 bomb.visible=false;grp.add(bomb);applyQ();
 }
 const bomb=new THREE.Group();{const a=new THREE.Mesh(new THREE.BoxGeometry(.5,.14,.36),new THREE.MeshStandardMaterial({color:0x10151c,metalness:.8,roughness:.4}));a.position.y=.07;const l=new THREE.Mesh(new THREE.SphereGeometry(.05,8,8),new THREE.MeshBasicMaterial({color:0xff2a2a}));l.position.y=.17;bomb.add(a,l);bomb.led=l}
@@ -525,16 +593,36 @@ let shake=0;
 /* ---------------- UNITS & MATCH STATE ---------------- */
 const U=[],ITEMS=[],feedL=[];
 const pl={isP:true,side:'A',pos:V(),yaw:0,pitch:0,hp:100,alive:true,eye:1.65,ads:0,adsT:false,crT:false,lean:0,lc:0,slot:1,mag:[0,0],res:[0,0],rel:0,fcd:0,rcP:0,rcY:0,kick:0,bob:0,melee:0,meleeCd:0,drone:false,dp:V(0,.25,0),dyaw:0,dpitch:0,op:OPS[0],pw:'R4C',sw:'P12',opt:'HOLO',gc:0,rf:3,swp:0,spr:false,mvg:false,ping:0,sn:0,surge:0,blind:0,poison:0,poisT:0,root:0};
-const S={map:0,siteChoice:-1,round:1,sp:0,se:0,phase:'TITLE',t:0,planted:false,bomb:null,bt:40,df:0,dfn:0,defuser:null,ph:0,plan:0,mode:'title',paused:false,netMode:'bot',matchId:null,opponentName:'Bots',training:false};
+const S={map:0,siteChoice:-1,round:1,sp:0,se:0,phase:'TITLE',t:0,planted:false,bomb:null,bt:40,df:0,dfn:0,defuser:null,ph:0,plan:0,mode:'title',paused:false,netMode:'bot',matchId:null,opponentName:'Bots',training:false,hostedRoomCode:null};
 
+/* Detailed multi-part third-person operator model */
 function mkAg(op,side){
   const g=new THREE.Group();g.rotation.order='YXZ';
   const outHex=getOutfit().hex;
-  const mk=(w,h,d,x,y,z,c,par=g)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color:c,roughness:.7,metalness:.1}));m.position.set(x,y,z);m.castShadow=true;par.add(m);return m};
-  const cl=side==='A'?outHex:0x4d3b2b,dk=0x14181f,lL=new THREE.Group(),lR=new THREE.Group();lL.position.set(-.13,.85,0);lR.position.set(.13,.85,0);g.add(lL,lR);
-  mk(.17,.85,.2,0,-.42,0,cl,lL);mk(.17,.85,.2,0,-.42,0,cl,lR);mk(.19,.14,.27,0,-.8,.03,dk,lL);mk(.19,.14,.27,0,-.8,.03,dk,lR);
-  mk(.5,.62,.28,0,1.15,0,cl);mk(.54,.5,.32,0,1.18,0,dk);mk(.46,.06,.34,0,1.36,0,op.c);mk(.13,.5,.14,-.33,1.12,.1,cl);mk(.13,.5,.14,.33,1.12,.1,cl);
-  mk(.27,.3,.27,0,1.64,0,0x1b2128);mk(.21,.07,.03,0,1.65,.14,op.c);mk(.06,.1,.55,.17,1.22,.34,dk);sc.add(g);return{g,lL,lR}
+  const cl=side==='A'?outHex:0x4d3b2b,dk=0x14181f,armorMat=0x232a34,skinMat=0x374151;
+  const mk=(w,h,d,x,y,z,c,par=g)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color:c,roughness:.72,metalness:.18}));m.position.set(x,y,z);m.castShadow=true;par.add(m);return m};
+  const lL=new THREE.Group(),lR=new THREE.Group();lL.position.set(-.14,.84,0);lR.position.set(.14,.84,0);g.add(lL,lR);
+  /* Legs & knee pads */
+  mk(.17,.45,.21,0,-.22,0,cl,lL);mk(.18,.11,.23,0,-.44,.02,armorMat,lL);mk(.17,.38,.21,0,-.64,0,cl,lL);mk(.19,.14,.28,0,-.8,.04,dk,lL);
+  mk(.17,.45,.21,0,-.22,0,cl,lR);mk(.18,.11,.23,0,-.44,.02,armorMat,lR);mk(.17,.38,.21,0,-.64,0,cl,lR);mk(.19,.14,.28,0,-.8,.04,dk,lR);
+  /* Torso, plate carrier & pouches */
+  mk(.52,.64,.3,0,1.15,0,cl);
+  mk(.56,.44,.35,0,1.19,0,armorMat);
+  mk(.48,.065,.36,0,1.37,0,op.c);
+  mk(.11,.13,.07,-.14,1.06,.19,dk);mk(.11,.13,.07,0,1.06,.19,dk);mk(.11,.13,.07,.14,1.06,.19,dk);
+  /* Backpack & holster */
+  mk(.38,.42,.16,0,1.18,-.22,armorMat);
+  mk(.08,.18,.12,.29,.84,.02,dk);
+  /* Arms & gloves */
+  mk(.13,.46,.14,-.34,1.14,.08,cl);mk(.13,.13,.15,-.34,.9,.16,skinMat);
+  mk(.13,.46,.14,.34,1.14,.08,cl);mk(.13,.13,.15,.34,.9,.16,skinMat);
+  /* Helmet, headset & visor */
+  mk(.28,.28,.28,0,1.65,0,armorMat);
+  mk(.32,.11,.18,0,1.66,0,dk);
+  mk(.23,.075,.04,0,1.66,.15,op.c);
+  /* Rifle slung/held */
+  mk(.065,.1,.58,.18,1.16,.34,dk);mk(.04,.04,.22,.18,1.19,.65,armorMat);
+  sc.add(g);return{g,lL,lR}
 }
 function mkU(op,side,pos,idx){const u={op,side,pos:pos.clone(),hp:100,alive:true,idx,yaw:0,ty:0,look:side==='A'?Math.PI:0,tgt:null,seen:0,vis:false,rt:0,fcd:Rn()*.5,sc:Rn()*.2,sd:Rn()<.5?1:-1,bur:0,al:null,path:[],pi:0,rp:0,gc:-1,ph:0,brk:0,mvs:0,anc:pos.clone(),jx:(Rn()-.5)*3,jz:(Rn()-.5)*3,ping:0,ac:(.8+Rn()*.3)*DIF,sn:0,surge:0,blind:0,poison:0,poisT:0,root:0,botCd:2+Rn()*3,botUses:op.n<90?Math.min(2,op.n):2};u.m=mkAg(op,side);u.m.g.position.copy(pos);return u}
 function noiseAt(p,r,side){for(const u of U)if(u.alive&&!u.isP&&u.side!==side&&!u.al&&Math.hypot(u.pos.x-p.x,u.pos.z-p.z)<r)u.al={x:p.x,z:p.z,t:8}}
@@ -615,9 +703,9 @@ if(!follow(u,dt,gx,gz)){if(S.planted&&u.side==='D')u.ty=Math.atan2(S.bomb.x-u.po
 function pickDefuser(){let best=null,bd=Infinity;for(const u of U){if(u.alive&&!u.isP&&u.side==='D'){const d=dist(u.pos,S.bomb);if(d<bd){best=u;bd=d}}}S.defuser=best}
 function plant(p){S.planted=true;S.bomb=V(p.x,0,p.z);S.phase='PLANT';S.bt=40;S.df=0;pickDefuser();bomb.position.copy(S.bomb);bomb.visible=true;ban('Defuser planted','Defenders: defuse it before time runs out');snd(500,'sine',.3,.3);U.forEach(u=>{if(u.alive&&!u.isP&&u.side==='D')u.al=null})}
 
-/* ---------------- PLAYER ---------------- */
+/* ---------------- PLAYER & DETAILED WEAPON MODELS ---------------- */
 const fp=new THREE.Group(),fr=new THREE.Group();cam.add(fp);fp.add(fr);
-const FM=[new THREE.MeshStandardMaterial({color:0x2b3340,metalness:.7,roughness:.4}),new THREE.MeshStandardMaterial({color:0x14181f,metalness:.6,roughness:.5}),new THREE.MeshStandardMaterial({color:0x7a4e2a,roughness:.7})],skin=new THREE.MeshStandardMaterial({color:0x2a313b,roughness:.8});
+const FM=[new THREE.MeshStandardMaterial({color:0x2b3340,metalness:.75,roughness:.36}),new THREE.MeshStandardMaterial({color:0x14181f,metalness:.65,roughness:.45}),new THREE.MeshStandardMaterial({color:0x7a4e2a,roughness:.72})],skin=new THREE.MeshStandardMaterial({color:0x2a313b,roughness:.8});
 const mf=new THREE.PointLight(0xffa040,0,6);mf.position.set(0,.03,-.9);fp.add(mf);let optG,animSlide,animPump,animMag;
 const cw=()=>WP[pl.slot===1?pl.pw:pl.sw];
 function bFP(){
@@ -632,7 +720,11 @@ function bFP(){
   else if(id==='P90'){detail(.11,.07,.32,0,.095,-.32,0);detail(.17,.055,.23,0,.14,-.34,1);detail(.23,.035,.18,0,.19,-.34,2);animMag=part(.15,.055,.25,0,.04,-.34,0)}
   else if(id==='M249'){detail(.2,.13,.18,0,-.08,-.32,0);detail(.16,.17,.2,0,-.12,-.29,1);detail(.19,.025,.18,0,-.22,-.3,2);detail(.045,.035,.28,0,.04,-.49,1);animSlide=part(.12,.045,.16,0,.09,-.27,1)}
   else{detail(.045,.035,.22,0,.04,-.43,1);detail(.12,.025,.2,0,.005,-.55,0);if(id==='F2'||id==='G36C')detail(.13,.045,.13,0,.075,-.27,1);if(id==='AK12'||id==='R4C'||id==='G36C'||id==='F2'||id==='MP5'||id==='MP7'||id==='VECTOR')detail(.13,.22,.13,0,-.12,-.27,2);if(id==='MP5'||id==='MP7'||id==='VECTOR')detail(.16,.09,.15,0,.12,-.3,0);animSlide=part(.13,.045,.18,0,.09,-.3,1)}
-  const hand=(x,y,z)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(.07,.075,.1),skin);m.position.set(x,y,z);fr.add(m)};hand(.01,-.07,-.12);hand(-.01,-.04,w.a?-.5:-.28);
+  const hand=(x,y,z)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(.075,.08,.11),skin);m.position.set(x,y,z);fr.add(m)};
+  hand(.015,-.075,-.12);hand(-.015,-.045,w.a?-.52:-.28);
+  /* Weapon charm badge near rear receiver */
+  const chm=new THREE.Mesh(new THREE.BoxGeometry(.024,.032,.024),new THREE.MeshStandardMaterial({color:getCharm().hex,metalness:.5,roughness:.4}));
+  chm.position.set(.05,.04,-.15);fr.add(chm);
   optG=new THREE.Group();fr.add(optG);const ob=(a,b,c,x,y,z,col=0x14181f,tr)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(a,b,c),tr?new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.3}):FM[1]);if(!tr&&col!==0x14181f)m.material=new THREE.MeshBasicMaterial({color:col});m.position.set(x,y,z);optG.add(m)};
   if(pl.slot===1&&!w.sh){const o=pl.opt,z=-.2;
   if(o==='HOLO'){ob(.012,.04,.08,-.03,.075,z);ob(.012,.04,.08,.03,.075,z);ob(.07,.012,.08,0,.098,z);ob(.05,.03,.004,0,.075,z-.04,0x7dd3fc,1)}
@@ -919,10 +1011,11 @@ function startQueueOrBotFallback(isHost=false,explicitCode=null){
   }
   const roomTitle=($('room-name').value||'').trim()||(code?`Room ${code}`:'Public Match');
   const isPub=$('room-public').checked;
-  if(code){
-    savePublicRoom({code,name:roomTitle,map:S.map,side:pl.side,isPublic:isPub,players:isHost?1:2,maxPlayers:10});
+  if(isHost&&code&&isPub){
+    S.hostedRoomCode=code;
+    savePublicRoom({code,name:roomTitle,map:S.map,side:pl.side,isPublic:true,players:1,maxPlayers:10});
     renderPublicRooms();
-    if(isHost&&navigator.clipboard&&navigator.clipboard.writeText){
+    if(navigator.clipboard&&navigator.clipboard.writeText){
       navigator.clipboard.writeText(code).catch(()=>{});
     }
   }
@@ -962,7 +1055,9 @@ $('createroom').onclick=()=>{au();S.training=false;startQueueOrBotFallback(true)
 $('refresh-rooms').onclick=renderPublicRooms;
 $('qcancel').onclick=()=>{
   if(!inQueue)return;
-  if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'leave_queue',roomCode:$('roomcode').value.trim().toUpperCase()||null}));
+  const code=$('roomcode').value.trim().toUpperCase()||null;
+  if(code&&code===S.hostedRoomCode){removePublicRoom(code);S.hostedRoomCode=null;renderPublicRooms()}
+  if(ws&&ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify({type:'leave_queue',roomCode:code}));
   clearQueue();
 };
 
@@ -999,10 +1094,11 @@ function startRound(){
 /* ---------------- SCREENS & NAVIGATION ---------------- */
 let selOp='THERMITE',menuTab='ops';
 function showTitle(){
+  if(S.hostedRoomCode){removePublicRoom(S.hostedRoomCode);S.hostedRoomCode=null}
   S.mode='title';S.phase='TITLE';
   $('hud').classList.add('hide');$('menu').classList.add('hide');$('end').classList.add('hide');$('pause').classList.add('hide');
   $('title').classList.remove('hide');
-  syncWalletUI();
+  syncWalletUI();renderPublicRooms();
 }
 
 function openHub(tab='ops',first=true){
@@ -1049,7 +1145,7 @@ document.querySelectorAll('#shop-cats [data-scat]').forEach(b=>b.onclick=()=>{ac
 $('title-play').onclick=()=>{au();S.training=false;openHub('ops',true)};
 $('title-train').onclick=()=>{au();S.training=true;openHub('ops',true)};
 $('title-rooms').onclick=()=>{au();S.training=false;openHub('rooms',true)};
-$('title-shop').onclick=()=>{au();openHub('shop',true)};
+$('title-shop').onclick=()=>{au();S.training=false;openHub('shop',true)};
 $('title-settings').onclick=()=>{au();openHub('settings',true)};
 $('hub-settings-btn').onclick=()=>setMenuTab('settings');
 $('back-title').onclick=()=>showTitle();
@@ -1063,6 +1159,7 @@ $('resume').onclick=()=>{$('c').requestPointerLock()};
 $('quitmatch').onclick=()=>{$('confirm').classList.remove('hide')};
 $('cancelquit').onclick=()=>{$('confirm').classList.add('hide')};
 $('confirmquit').onclick=()=>{
+  if(S.hostedRoomCode){removePublicRoom(S.hostedRoomCode);S.hostedRoomCode=null}
   if(document.pointerLockElement)document.exitPointerLock();
   S.sp=S.se=0;S.round=1;S.netMode='bot';S.training=false;S.mode='title';S.phase='TITLE';S.paused=false;recordingBind=null;
   $('confirm').classList.add('hide');$('pause').classList.add('hide');showTitle();
