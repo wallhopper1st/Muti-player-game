@@ -145,7 +145,21 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .snd-box{background:#0c1218;border:1px solid #ffffff18;padding:10px 12px;margin:8px 0}
 .snd-box h3{font-size:13px;color:var(--a);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
 #am.low{border-right:3px solid var(--r)}#am.low #mg{color:var(--r)}
-.tabs{display:flex;gap:7px;flex-wrap:wrap;margin:12px 0 10px;border-bottom:1px solid var(--line);padding-bottom:8px}.tabs button{min-width:104px;text-transform:uppercase;letter-spacing:.06em}
+ .tabs{display:flex;gap:4px;flex-wrap:wrap;margin:12px 0 10px;border-bottom:1px solid var(--line);padding-bottom:8px}.tabs button{min-width:104px;text-transform:uppercase;letter-spacing:.06em}
+ #menutabs{position:sticky;top:0;z-index:7;margin:0 -22px 16px;padding:10px 22px 0;background:rgba(7,11,16,.86);backdrop-filter:blur(12px);border-bottom:1px solid #ffffff26;gap:3px}
+ #menutabs button{position:relative;flex:1;min-width:100px;padding:12px 10px;background:transparent;border:0;color:#aebdcd;letter-spacing:.08em}
+ #menutabs button:hover,#menutabs button.active{background:#ffffff0b;color:#fff;border:0}
+ #menutabs button.active:after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:3px;background:var(--a);box-shadow:0 0 12px #f2a93b88}
+ #roomtabs{margin:0 0 14px;border:0;padding:0;gap:7px}
+ #roomtabs button{flex:1;min-width:120px;background:#ffffff08;border:1px solid #ffffff1c;color:#9fb1c4}
+ #roomtabs button.active{background:#43d9a018;border-color:#43d9a077;color:var(--g)}
+ .hub-footer{position:sticky;bottom:-20px;z-index:6;margin:14px -22px -20px;padding:12px 22px 14px;background:rgba(7,11,16,.94);backdrop-filter:blur(12px);border-top:1px solid #ffffff24}
+ .hub-footer .help{margin-top:7px;line-height:1.45}
+ .hub-title{display:flex;align-items:center;gap:10px;margin:4px 0 12px}
+ .hub-title h2{font-size:25px;text-transform:uppercase;letter-spacing:.06em}
+ .hub-title p{color:#8da0b5;font-weight:500;margin-top:2px}
+ .room-pane-title{font-size:18px;text-transform:uppercase;letter-spacing:.06em;margin:4px 0;color:#e8edf3}
+ .room-pane-copy{color:#8da0b5;font-weight:500;margin:0 0 12px}
 #mapb{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;gap:8px}#mapb button{min-height:74px;text-align:left;border-left:3px solid #506173;background:linear-gradient(135deg,#17212c,#0d131a);font-size:16px}#mapb button small{display:block;margin-top:6px;color:#8da0b5;font-size:11px;font-weight:500}#mapb button.on{border-left-color:var(--a);background:linear-gradient(135deg,#4a351b,#1b1c1b);color:#ffe0a8}
 #siteb,#spawnb{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;gap:8px}#siteb button,#spawnb button{min-height:54px;text-align:left;border-left:3px solid #506173;background:#111923}#siteb button.on{border-left-color:var(--b);background:#153040;color:#d9f3ff}#spawnb button.on{border-left-color:var(--g);background:#14332a;color:#d4f9ea}#siteb button small,#spawnb button small{display:block;margin-top:3px;color:#8da0b5;font-size:11px}
 #mapinfo{width:100%;padding:11px 13px;background:#0c1218;border:1px solid #ffffff18;color:#b4c2d1;font-weight:500;line-height:1.45}#mapinfo b{color:var(--a)}
@@ -153,8 +167,9 @@ button:disabled{opacity:.45;cursor:not-allowed}
 #controls{background:#0c1218;border:1px solid #ffffff18;padding:14px}#controls h2{margin-bottom:4px}#controls p{color:#8da0b5;font-weight:500;margin-bottom:12px}.binds{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.bind{display:flex;align-items:center;justify-content:space-between;text-align:left;gap:8px}.bind kbd{color:var(--a);background:#06090d;border:1px solid #ffffff2a;padding:4px 7px;min-width:48px;text-align:center}.bind.record{border-color:var(--a);color:var(--a)}
 #pause .tabs{margin-top:10px}#pause .gfx,#pause #controls{margin-bottom:10px}#quitmatch{background:#35191b;border-color:#ff4d4d66;color:#ffb1b1;margin-top:8px}#quitmatch:hover{background:#ff4d4d;color:#111}
 #confirm{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:#020508c9;backdrop-filter:blur(7px);padding:16px}#confirm .mc{width:min(440px,94vw);border-left:3px solid var(--r)}#confirm h2{font-size:28px;margin-bottom:8px}#confirm p{color:#b4c2d1;line-height:1.45;margin-bottom:14px}.confirmrow{display:flex;gap:8px}.confirmrow button{flex:1}
-#room-lobby{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}#room-lobby b{display:block;font-size:15px;color:var(--a)}#room-lobby small{color:#8da0b5;font-weight:500}
-@media(max-width:620px){#mapb,#siteb,#spawnb{grid-template-columns:1fr}.binds{grid-template-columns:repeat(2,minmax(0,1fr))}.tabs button{flex:1;min-width:38%}#title{padding:18px}}
+ #room-lobby{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}#room-lobby b{display:block;font-size:15px;color:var(--a)}#room-lobby small{display:block;color:#8da0b5;font-weight:500;margin-top:4px}
+ @media(max-width:720px){#menutabs{margin-left:-14px;margin-right:-14px;padding-left:14px;padding-right:14px}#menutabs button{min-width:82px;padding:10px 6px;font-size:11px}.hub-footer{margin-left:-14px;margin-right:-14px;padding-left:14px;padding-right:14px}}
+ @media(max-width:620px){#mapb,#siteb,#spawnb{grid-template-columns:1fr}.binds{grid-template-columns:repeat(2,minmax(0,1fr))}.tabs button{flex:1;min-width:38%}#title{padding:18px}.hub-title h2{font-size:21px}.room-grid{grid-template-columns:1fr}.hub-footer{bottom:-14px}}
 </style></head><body>
 <canvas id="c"></canvas>
 
@@ -202,14 +217,15 @@ button:disabled{opacity:.45;cursor:not-allowed}
     </div>
   </div>
 
-  <div class="tabs" id="menutabs">
-    <button data-tab="ops">Operators</button>
-    <button data-tab="rooms">Custom Rooms</button>
-    <button data-tab="shop">Shop &amp; Clothes</button>
-    <button data-tab="maps">Maps &amp; Spawns</button>
-    <button data-tab="settings">Settings</button>
-    <button data-tab="controls">Controls</button>
-  </div>
+     <div class="tabs" id="menutabs">
+     <button data-tab="ops">Operators</button>
+     <button data-tab="loadout">Loadout</button>
+     <button data-tab="maps">Maps</button>
+     <button data-tab="rooms">Custom Rooms</button>
+     <button data-tab="shop">Shop</button>
+     <button data-tab="settings">Settings</button>
+     <button data-tab="controls">Controls</button>
+   </div>
 
   <div id="pre">
     <div class="row" id="mapb"></div>
@@ -219,9 +235,9 @@ button:disabled{opacity:.45;cursor:not-allowed}
     <div id="mapinfo"></div>
   </div>
 
-  <div id="trn" class="hide"></div><div class="two">
-    <div id="ops"></div>
-    <div id="dos">
+     <div id="trn" class="hide"></div><div class="two">
+     <div id="ops"></div>
+     <div id="dos">
       <div style="display:flex;align-items:center;gap:10px">
         <div id="d-ico" class="op-ico" style="width:40px;height:40px"></div>
         <h2 id="dn"></h2>
@@ -234,12 +250,20 @@ button:disabled{opacity:.45;cursor:not-allowed}
     </div>
   </div>
 
-  <!-- CUSTOMIZABLE ROOMS TAB -->
-  <div id="rooms-tab" class="hide">
-    <div class="room-panel">
+     <!-- CUSTOMIZABLE ROOMS TAB -->
+   <div id="rooms-tab" class="hide">
+     <div class="hub-title"><div><h2>Custom Rooms</h2><p>Create a lobby, browse active rooms, or manage your current room.</p></div><span id="room-connection-status" style="color:#8da0b5;font-size:11px;margin-left:auto">Connecting to online rooms…</span></div>
+     <div class="tabs" id="roomtabs">
+       <button data-roomtab="create">Create Room</button>
+       <button data-roomtab="browse">Browse &amp; Join</button>
+       <button data-roomtab="lobby">Room Lobby</button>
+     </div>
+     <div id="room-create-pane" class="room-subpane">
+     <div class="room-panel">
+       <h3 class="room-pane-title">Match Rules &amp; Room Details</h3>
+       <p class="room-pane-copy">Choose the preset. Your room code is shared with anyone you invite.</p>
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <b style="color:var(--g);font-size:15px">CUSTOM MATCH PRESET</b>
-        <span id="room-connection-status" style="color:#8da0b5;font-size:11px">Connecting to online rooms…</span>
+                 <b style="color:var(--g);font-size:15px">CUSTOM MATCH PRESET</b>
       </div>
       <div class="room-grid">
         <label class="room-field">Room Name<input id="room-name" maxlength="24" placeholder="e.g. Tactical Scrim"></label>
@@ -321,21 +345,29 @@ button:disabled{opacity:.45;cursor:not-allowed}
         <span style="color:#9fb1c4;font-size:12px">Defense always has a shared pool of <b>15 Team Reinforcements</b>.</span>
         <button id="createroom" type="button" style="background:var(--g);color:#091118;border-color:var(--g)">Create Room</button>
       </div>
-    </div>
-
-    <div class="room-join-box">
-      <b style="color:var(--b)">JOIN ONLINE BY CODE:</b>
+         </div>
+     </div>
+ 
+     <div id="room-browse-pane" class="room-subpane hide">
+       <h3 class="room-pane-title">Find a Room</h3>
+       <p class="room-pane-copy">Join an online lobby with a room code, or refresh the public room list.</p>
+     <div class="room-join-box">
+       <b style="color:var(--b)">JOIN ONLINE BY CODE:</b>
       <input id="join-code-input" maxlength="10" placeholder="Enter room code..." style="width:180px;text-transform:uppercase">
       <button id="join-by-code-btn" type="button">Load Room</button>
       <button id="refresh-rooms" type="button" style="margin-left:auto">Refresh Rooms</button>
     </div>
 
-    <div class="room-list" id="public-room-list"></div>
-    <div id="room-lobby" class="room-panel hide">
-      <div><b id="room-lobby-title">Room ready</b><small id="room-lobby-info"></small><small id="room-player-list">Connecting players…</small></div>
-      <div class="hub-right"><button id="room-setup" type="button">Open Match Setup</button><button id="room-leave" type="button">Leave Room</button></div>
-    </div>
-  </div>
+         <div class="room-list" id="public-room-list"></div>
+     </div>
+     <div id="room-lobby-pane" class="room-subpane hide">
+       <div id="room-lobby" class="room-panel">
+         <div><b id="room-lobby-title">No room joined</b><small id="room-lobby-info">Join or create a room to see lobby details here.</small><small id="room-player-list">No room connected.</small></div>
+         <div class="hub-right"><button id="room-setup" type="button">Operator &amp; Loadout</button><button id="room-leave" type="button">Leave Room</button></div>
+       </div>
+       <div class="room-panel" style="border-left-color:var(--b)"><b style="color:var(--b)">MATCH START</b><p class="sub">This lobby is for room discovery and presence. Starting from this browser launches a local bot match; online PvP synchronization is not implemented.</p></div>
+     </div>
+   </div>
 
   <div id="shop-tab" class="hide">
     <div class="row" id="shop-cats">
@@ -353,8 +385,10 @@ button:disabled{opacity:.45;cursor:not-allowed}
     <div class="binds" id="binds"></div>
   </div>
 
-  <button id="go">Start Match vs Bots</button>
-  <p class="help">WASD move · mouse aim · RMB/X ADS · LMB fire (works in Prep too!) · V melee · Q/E steady lean · C crouch · Shift sprint · G gadget · F reinforce/barricade/plant/defuse · R reload · 1/2 swap · T end prep · H quick restart · TAB scoreboard</p>
+     <div class="hub-footer">
+     <button id="go">Start Match vs Bots</button>
+     <p class="help">WASD move · mouse aim · RMB/X ADS · LMB fire · V melee · Q/E lean · C crouch · Shift sprint · G gadget · F interact · R reload · 1/2 swap · T end prep · H restart · TAB scoreboard</p>
+   </div>
 </div></div>
 
 <!-- HUD -->
@@ -783,9 +817,10 @@ function applyRoomConfig(cfg){
   S.friendlyFire=!!cfg.friendlyFire;if(cfg.botSkill)DIF=Number(cfg.botSkill)||1;
   build(S.map);
 }
-function showRoomLobby(room,isHost=false){
-  activeRoom={...room,isHost};
-  $('room-lobby').classList.remove('hide');
+ function showRoomLobby(room,isHost=false){
+   activeRoom={...room,isHost};
+   setRoomTab('lobby');
+   $('room-lobby').classList.remove('hide');
   $('room-lobby-title').textContent=`${isHost?'Hosting':'Joined'} ${room.isPrivate?'private':'public'} room: ${room.name} [${room.code}]`;
   $('room-lobby-info').textContent=`${MAPS[room.map]?.n||'Farmhouse'} · ${room.online?'Online lobby':'Saved local preset'} · Match start is manual.`;
   $('room-player-list').textContent=room.online?'Connecting players…':'No online players — this is a local preset.';
@@ -803,7 +838,7 @@ async function joinRoomByCode(rawCode){
   }catch(err){setRoomConnection(err.message||'Online room connection failed','var(--r)');ban('Could not join room',err.message||'Check the room code and Supabase connection')}
 }
 
-let activeShopCat='clothes';
+ let activeShopCat='clothes',roomTab='create';
 function renderShop(){
   document.querySelectorAll('#shop-cats [data-scat]').forEach(b=>b.classList.toggle('on',b.dataset.scat===activeShopCat));
   const items=SHOP_ITEMS.filter(x=>x.cat===activeShopCat);
@@ -1568,13 +1603,13 @@ $('createroom').onclick=async()=>{
 };
 $('join-by-code-btn').onclick=()=>joinRoomByCode($('join-code-input').value);
 $('refresh-rooms').onclick=renderPublicRooms;
-$('room-setup').onclick=()=>{openHub('ops',false)};
-$('room-leave').onclick=async()=>{
-  const wasHost=activeRoom?.isHost,code=activeRoom?.code;
-  await leaveOnlineRoom();
-  if(wasHost){removeRoomRecord(code);if(S.hostedRoomCode===code)S.hostedRoomCode=null}
-  activeRoom=null;$('room-lobby').classList.add('hide');$('go').textContent='Start Match vs Bots';renderPublicRooms();
-};
+ $('room-setup').onclick=()=>{openHub('ops',false)};
+ $('room-leave').onclick=async()=>{
+   const wasHost=activeRoom?.isHost,code=activeRoom?.code;
+   await leaveOnlineRoom();
+   if(wasHost){removeRoomRecord(code);if(S.hostedRoomCode===code)S.hostedRoomCode=null}
+   activeRoom=null;$('room-lobby-title').textContent='No room joined';$('room-lobby-info').textContent='Join or create a room to see lobby details here.';$('room-player-list').textContent='No room connected.';$('go').textContent='Start Match vs Bots';renderPublicRooms();setRoomTab('browse');
+ };
 
 /* ---------------- ROUND FLOW WITH MULTI-SPAWN SELECTION ---------------- */
 function startRound(){
@@ -1653,14 +1688,26 @@ function openHub(tab='ops',first=true){
   $('sideb').innerHTML='<span style="align-self:center;color:#8da0b5">Start as</span>'+['A','D'].map(s=>`<button class="${pl.side===s?'on':''}" data-s="${s}">${s==='A'?'Attackers':'Defenders'}</button>`).join('');
   $('sideb').querySelectorAll('button').forEach(b=>b.onclick=()=>{pl.side=b.dataset.s;openHub(menuTab,first)});
 }
-function setMenuTab(tab){
-  menuTab=tab;document.querySelectorAll('#menutabs [data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-  $('pre').classList.toggle('hide',tab!=='maps');document.querySelector('.two').classList.toggle('hide',tab!=='ops');
-  $('rooms-tab').classList.toggle('hide',tab!=='rooms');$('shop-tab').classList.toggle('hide',tab!=='shop');
-  document.querySelector('#menu .gfx').classList.toggle('hide',tab!=='settings');$('controls').classList.toggle('hide',tab!=='controls');
-  $('trn').classList.toggle('hide',!S.training||tab!=='ops');$('go').textContent=S.training?`Start Bot Training (${TRN.prep}s prep)`:activeRoom?.online?'Start Bot Match (not online gameplay)':activeRoom?'Start Match vs Bots':'Start Match vs Bots';
-}
-document.querySelectorAll('#menutabs [data-tab]').forEach(b=>b.onclick=()=>setMenuTab(b.dataset.tab));
+ function setRoomTab(tab){
+   roomTab=tab;
+   document.querySelectorAll('#roomtabs [data-roomtab]').forEach(b=>b.classList.toggle('active',b.dataset.roomtab===tab));
+   $('room-create-pane').classList.toggle('hide',tab!=='create');
+   $('room-browse-pane').classList.toggle('hide',tab!=='browse');
+   $('room-lobby-pane').classList.toggle('hide',tab!=='lobby');
+ }
+ function setMenuTab(tab){
+   menuTab=tab;document.querySelectorAll('#menutabs [data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
+   $('pre').classList.toggle('hide',tab!=='maps');
+   document.querySelector('.two').classList.toggle('hide',tab!=='ops'&&tab!=='loadout');
+   $('ops').classList.toggle('hide',tab!=='ops');$('dos').classList.toggle('hide',tab!=='loadout');
+   $('rooms-tab').classList.toggle('hide',tab!=='rooms');$('shop-tab').classList.toggle('hide',tab!=='shop');
+   document.querySelector('#menu .gfx').classList.toggle('hide',tab!=='settings');$('controls').classList.toggle('hide',tab!=='controls');
+   $('trn').classList.toggle('hide',!S.training||tab!=='ops');
+   if(tab==='rooms')setRoomTab(activeRoom?'lobby':roomTab);
+   $('go').textContent=S.training?`Start Bot Training (${TRN.prep}s prep)`:activeRoom?.online?'Start Bot Match · Bots only':activeRoom?'Start Match vs Bots':'Start Match vs Bots';
+ }
+ document.querySelectorAll('#menutabs [data-tab]').forEach(b=>b.onclick=()=>setMenuTab(b.dataset.tab));
+ document.querySelectorAll('#roomtabs [data-roomtab]').forEach(b=>b.onclick=()=>setRoomTab(b.dataset.roomtab));
 document.querySelectorAll('#pausetabs [data-tab]').forEach(b=>b.onclick=()=>setPauseTab(b.dataset.tab));
 document.querySelectorAll('#shop-cats [data-scat]').forEach(b=>b.onclick=()=>{activeShopCat=b.dataset.scat;renderShop()});
 $('title-play').onclick=()=>{au();if(S.dif0){DIF=S.dif0;S.dif0=0}S.training=false;S.prepSec=DEFAULT_PREP_SECONDS;openHub('ops',true)};
