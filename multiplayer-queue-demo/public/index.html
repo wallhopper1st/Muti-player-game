@@ -1,7 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Siege Protocol</title>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--a:#f2a93b;--b:#4cc3ff;--r:#ff4d4d;--g:#43d9a0;--p:rgba(9,13,19,.9);--line:#ffffff1e}
@@ -18,9 +17,10 @@ button:disabled{opacity:.45;cursor:not-allowed}
 /* Title Overlay */
 #title{position:fixed;inset:0;z-index:12;display:flex;flex-direction:column;justify-content:space-between;padding:28px 34px;background:radial-gradient(circle at 22% 35%,rgba(242,169,59,.15),transparent 42%),linear-gradient(90deg,rgba(5,8,12,.92) 0%,rgba(5,8,12,.58) 55%,rgba(5,8,12,.35) 100%)}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;pointer-events:auto}
-.wallet{display:flex;align-items:center;gap:14px;background:var(--p);border:1px solid var(--line);padding:8px 14px}
-.wallet b{color:var(--a);font-size:15px}
-.wallet small{color:#8da0b5;font-weight:500}
+.wallet{display:flex;align-items:center;gap:8px;background:var(--p);border:1px solid var(--line);padding:8px 10px}
+.wallet>div{display:grid;gap:1px;line-height:1.1}
+.wallet b{color:var(--a);font-size:14px;white-space:nowrap}
+.wallet small{color:#8da0b5;font-weight:500;white-space:nowrap}
 .title-hero{max-width:660px;margin:auto 0;pointer-events:auto}
 .tag{display:inline-block;padding:4px 10px;background:#f2a93b22;border-left:3px solid var(--a);color:var(--a);letter-spacing:.12em;font-size:11px;margin-bottom:10px}
 .title-hero h1{font-size:clamp(46px,8vw,86px);line-height:.88;letter-spacing:.03em;text-transform:uppercase}
@@ -212,8 +212,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
         <div><small>RENOWN</small><b id="mren">1,500</b></div>
         <div><small>CREDITS</small><b id="mcrd">500</b></div>
       </div>
-      <button id="back-title" type="button">Title</button>
       <button id="hub-settings-btn" type="button">Settings</button>
+      <button id="close-hub" type="button" aria-label="Close menu and return to title" title="Close · Escape" style="font-size:22px;line-height:1;padding:5px 11px">×</button>
     </div>
   </div>
 
@@ -365,7 +365,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
          <div><b id="room-lobby-title">No room joined</b><small id="room-lobby-info">Join or create a room to see lobby details here.</small><small id="room-player-list">No room connected.</small></div>
          <div class="hub-right"><button id="room-setup" type="button">Operator &amp; Loadout</button><button id="room-leave" type="button">Leave Room</button></div>
        </div>
-       <div class="room-panel" style="border-left-color:var(--b)"><b style="color:var(--b)">MATCH START</b><p class="sub">This lobby is for room discovery and presence. Starting from this browser launches a local bot match; online PvP synchronization is not implemented.</p></div>
+               <div class="room-panel" style="border-left-color:var(--b)"><b style="color:var(--b)">MATCH START</b><p class="sub">The host starts everyone in the room together with the selected custom rules. Each browser runs its own bot match; player movement and combat are not synchronized online yet.</p></div>
      </div>
    </div>
 
@@ -738,7 +738,7 @@ function refreshRoomMembers(){
   if(!activeRoom)return;
   const members=onlineMembers();
   $('room-player-list').textContent=`Players connected: ${members.length}${members.length?` · ${members.map(m=>m.name||'Player').join(', ')}`:''}`;
-  $('room-lobby-info').textContent=`${MAPS[activeRoom.map]?.n||'Farmhouse'} · ${activeRoom.isPrivate?'Private':'Public'} · Lobby only; match start is manual.`;
+     $('room-lobby-info').textContent=`${MAPS[activeRoom.map]?.n||'Farmhouse'} · ${activeRoom.isPrivate?'Private':'Public'} · ${isHost?'You are host; start when ready.':'Waiting for the host to start.'}`;
 }
 async function leaveOnlineRoom(){
   clearInterval(roomHeartbeat);roomHeartbeat=null;
@@ -751,6 +751,10 @@ async function connectOnlineRoom(room,isHost){
   await leaveOnlineRoom();
   const channel=supaClient.channel(`siege-room-${room.code}`,{config:{presence:{key:lobbyPlayerId},broadcast:{self:false}}});
   channel.on('presence',{event:'sync'},()=>refreshRoomMembers());
+  channel.on('broadcast',{event:'match_start'},({payload})=>{
+    if(!payload?.room||!activeRoom?.online||activeRoom.isHost||payload.room.code!==activeRoom.code||payload.hostId!==activeRoom.hostId)return;
+    startOnlineRoomMatch(payload);
+  });
   let timeoutId;
   const ready=await new Promise((resolve,reject)=>{
     let settled=false;
@@ -791,7 +795,7 @@ async function connectOnlineRoom(room,isHost){
     try{await channel.unsubscribe()}catch{}
     throw new Error(`Supabase presence tracking failed (${presence||'no response'}). Check Realtime is enabled and its access policies allow room channels.`);
   }
-  activeRoom={...roomConfig,isHost,online:true};
+  activeRoom={...roomConfig,isHost,online:true,hostId:isHost?lobbyPlayerId:host.id};
   members=onlineMembers(channel);refreshRoomMembers();
   clearInterval(roomHeartbeat);
   roomHeartbeat=setInterval(()=>{announceRoom();if(activeRoom?.isHost)refreshRoomMembers()},7000);
@@ -824,7 +828,8 @@ function applyRoomConfig(cfg){
   $('room-lobby-title').textContent=`${isHost?'Hosting':'Joined'} ${room.isPrivate?'private':'public'} room: ${room.name} [${room.code}]`;
   $('room-lobby-info').textContent=`${MAPS[room.map]?.n||'Farmhouse'} · ${room.online?'Online lobby':'Saved local preset'} · Match start is manual.`;
   $('room-player-list').textContent=room.online?'Connecting players…':'No online players — this is a local preset.';
-  $('go').textContent=room.online?'Start Bot Match (not online gameplay)':'Start Match vs Bots';
+  $('go').textContent=room.online?(isHost?'Start Room Match · Bots':'Waiting for Host'):'Start Match vs Bots';
+  $('go').disabled=!!room.online&&!isHost;
 }
 async function joinRoomByCode(rawCode){
   const code=(rawCode||'').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'');
@@ -834,7 +839,7 @@ async function joinRoomByCode(rawCode){
     const room=await connectOnlineRoom(onlineRooms.get(code)||{code},false);
     if(!room)return;
     applyRoomConfig(room);pl.side=room.hostSide==='A'?'D':'A';$('roomcode').value=code;$('join-code-input').value=code;S.training=false;
-    showRoomLobby(room,false);renderPublicRooms();ban('Online lobby joined',`${room.name} · Wait for the host; matches are not synchronized yet`);
+         showRoomLobby(room,false);renderPublicRooms();ban('Online lobby joined',`${room.name} · Waiting for the host to start`);
   }catch(err){setRoomConnection(err.message||'Online room connection failed','var(--r)');ban('Could not join room',err.message||'Check the room code and Supabase connection')}
 }
 
@@ -887,11 +892,6 @@ const mF=new THREE.MeshLambertMaterial({map:tF});
 const mG=new THREE.MeshLambertMaterial({map:tG});
 const mCe=new THREE.MeshLambertMaterial({color:0x1b2026});
 
-const gltfLoader=typeof THREE.GLTFLoader!=='undefined'?new THREE.GLTFLoader():null;
-const modelCache={};
-function tryLoadGLB(path,cb){
-  // Optional model assets are not included; keep the procedural fallback models.
-}
 
 /* ---------------- MAP BUILDER ---------------- */
 let G=[],P=[],OB=[],MW=76,MH=54,MAP=MAPS[0];const grp=new THREE.Group();sc.add(grp);
@@ -1184,7 +1184,6 @@ function mkAg(op,side){
   mk(.06,.09,.56,.16,1.15,.34,dk);
   mk(.036,.036,.2,.16,1.18,.63,vest);
 
-  tryLoadGLB('/models/operator.glb',model=>{model.scale.set(.95,.95,.95);g.children.slice().forEach(ch=>g.remove(ch));g.add(model)});
   sc.add(g);return{g,lL,lR};
 }
 
@@ -1381,7 +1380,6 @@ if(pl.slot===1&&!w.sh){const o=pl.opt,z=-.2;
   else if(o==='ACOG'){ob(.05,.05,.18,0,.085,z);ob(.056,.056,.03,0,.085,z+.1);ob(.01,.01,.12,0,.12,z,0xef4444)}
   else{ob(.006,.026,.01,0,.06,-.6,0xf2a93b);ob(.006,.022,.016,-.016,.06,z+.14);ob(.006,.022,.016,.016,.06,z+.14)}}
   else if(w.sh||pl.slot===2){ob(.006,.02,.01,0,.06,-.35,0xf2a93b);ob(.006,.018,.012,0,.058,-.12)}
-  tryLoadGLB(`/models/${id.toLowerCase()}.glb`,model=>{model.scale.set(.35,.35,.35);fr.children.slice().forEach(ch=>fr.remove(ch));fr.add(model)});
 }
 const HIP=V(.2,-.19,-.2);
 function fire(){
@@ -1579,12 +1577,31 @@ function beginMatchWithMode(mode,matchId,opponentName){
 function readCustomRoomForm(code,isPrivate){
   return{code,name:($('room-name').value||'').trim()||(isPrivate?`Private ${code}`:`Public ${code}`),isPrivate,map:Number($('room-map').value)||0,siteChoice:Number($('room-site').value),prepSec:Number($('room-prep').value)||DEFAULT_PREP_SECONDS,actSec:Number($('room-act').value)||150,roundsToWin:Number($('room-rounds').value)||2,botCount:Number($('room-bots').value),botSkill:Number($('room-bot-skill').value)||1,friendlyFire:$('room-ff').value==='1',hostSide:$('room-side').value||'A'};
 }
-function startConfiguredMatch(){
-  const op=OPS.find(o=>o.id===selOp)||OPS[0];
-  pl.op=op;pl.pw=$('sp').value||op.p[0];pl.sw=$('ss').value||op.q[0];pl.opt=$('so').value||'S15';ATT.m=$('sm').value;ATT.g=$('sgr').value;
-  if(S.training){S.prepSec=TRN.prep;S.actSec=TRN.elim?300:150;S.roundsToWin=2;S.botCount=9;S.friendlyFire=TRN.ff;S.elim=TRN.elim;S.static=TRN.stat;S.dif0=S.dif0||DIF;DIF=TDIF[TRN.diff];beginMatchWithMode('bot','train_'+Math.random().toString(36).slice(2,6),'Training Bots');return}
-  beginMatchWithMode('bot',activeRoom?.code||'local_'+Math.random().toString(36).slice(2,7),activeRoom?`Room ${activeRoom.code} · Bots`:'Bots');
-}
+ function startConfiguredMatch(){
+   if(!OPS.some(o=>o.id===selOp&&o.s===pl.side))selOp=OPS.find(o=>o.s===pl.side)?.id||OPS[0].id;
+   const op=OPS.find(o=>o.id===selOp)||OPS[0];
+   pl.op=op;pl.pw=$('sp').value||op.p[0];pl.sw=$('ss').value||op.q[0];pl.opt=$('so').value||'S15';ATT.m=$('sm').value;ATT.g=$('sgr').value;
+   if(S.training){S.prepSec=TRN.prep;S.actSec=TRN.elim?300:150;S.roundsToWin=2;S.botCount=9;S.friendlyFire=TRN.ff;S.elim=TRN.elim;S.static=TRN.stat;S.dif0=S.dif0||DIF;DIF=TDIF[TRN.diff];beginMatchWithMode('bot','train_'+Math.random().toString(36).slice(2,6),'Training Bots');return}
+   beginMatchWithMode('bot',activeRoom?.code||'local_'+Math.random().toString(36).slice(2,7),activeRoom?`Room ${activeRoom.code} · Bots`:'Bots');
+ }
+ function startOnlineRoomMatch(payload){
+   const room=payload?.room;
+   if(!room||!activeRoom?.online||room.code!==activeRoom.code||payload.hostId!==activeRoom.hostId)return;
+   applyRoomConfig(room);S.training=false;pl.side=activeRoom.isHost?room.hostSide:(room.hostSide==='A'?'D':'A');
+   S.sp=0;S.se=0;S.round=1;S.elim=false;S.static=false;
+   startConfiguredMatch();
+   ban('Room match started',`${room.name} · ${MAP.n} · Bot match; players are not synchronized yet`);
+ }
+ async function startHostedRoomMatch(){
+   if(!activeRoom?.online||!activeRoom.isHost||!roomChannel){ban('Room not ready','Only the connected host can start this room');return}
+   const room={...roomAnnouncement(activeRoom),isPrivate:activeRoom.isPrivate,hostSide:activeRoom.hostSide};
+   const payload={room,hostId:lobbyPlayerId};
+   let status='ok';
+   try{status=await roomChannel.send({type:'broadcast',event:'match_start',payload})}catch{status='error'}
+   if(status!=='ok')ban('Room start sent with warning','A player may need to reconnect; starting your bot match now');
+   startOnlineRoomMatch(payload);
+ }
+
 $('createroom').onclick=async()=>{
   au();S.training=false;
   if(!supaClient){ban('Online rooms unavailable','Supabase client failed to load. Check the connection and refresh.');return}
@@ -1704,7 +1721,8 @@ function openHub(tab='ops',first=true){
    document.querySelector('#menu .gfx').classList.toggle('hide',tab!=='settings');$('controls').classList.toggle('hide',tab!=='controls');
    $('trn').classList.toggle('hide',!S.training||tab!=='ops');
    if(tab==='rooms')setRoomTab(activeRoom?'lobby':roomTab);
-   $('go').textContent=S.training?`Start Bot Training (${TRN.prep}s prep)`:activeRoom?.online?'Start Bot Match · Bots only':activeRoom?'Start Match vs Bots':'Start Match vs Bots';
+       $('go').textContent=S.training?`Start Bot Training (${TRN.prep}s prep)`:activeRoom?.online?(activeRoom.isHost?'Start Room Match · Bots':'Waiting for Host'):'Start Match vs Bots';
+    $('go').disabled=!!activeRoom?.online&&!activeRoom.isHost;
  }
  document.querySelectorAll('#menutabs [data-tab]').forEach(b=>b.onclick=()=>setMenuTab(b.dataset.tab));
  document.querySelectorAll('#roomtabs [data-roomtab]').forEach(b=>b.onclick=()=>setRoomTab(b.dataset.roomtab));
@@ -1716,8 +1734,8 @@ $('title-rooms').onclick=()=>{au();S.training=false;openHub('rooms',true)};
 $('title-shop').onclick=()=>{au();S.training=false;openHub('shop',true)};
 $('title-settings').onclick=()=>{au();openHub('settings',true)};
 $('hub-settings-btn').onclick=()=>setMenuTab('settings');
-$('back-title').onclick=()=>showTitle();
-$('go').onclick=()=>{au();startConfiguredMatch()};
+$('close-hub').onclick=()=>showTitle();
+$('go').onclick=()=>{au();if(activeRoom?.online){if(activeRoom.isHost)startHostedRoomMatch()}else startConfiguredMatch()};
 $('eb').onclick=()=>{if($('eb').dataset.done){S.sp=S.se=0;S.round=1;pl.kills=pl.deaths=pl.assists=0;S.netMode='bot';openHub('ops',true)}else{S.round++;pl.side=pl.side==='A'?'D':'A';openHub('ops',false)}};
 $('resume').onclick=()=>$('c').requestPointerLock();
 $('restartround').onclick=()=>quickRestartRound();
@@ -1762,6 +1780,7 @@ function renderScoreboard(){
 addEventListener('keydown',e=>{
   if(recordingBind){e.preventDefault();if(e.code==='Escape'){recordingBind=null;renderBinds();return}const action=recordingBind,old=BIND[action],other=Object.keys(BIND).find(a=>a!==action&&BIND[a]===e.code);if(other)BIND[other]=old;BIND[action]=e.code;recordingBind=null;savePrefs();renderBinds();return}
   if(document.activeElement&&(document.activeElement.tagName==='INPUT'||document.activeElement.tagName==='SELECT'))return;
+  if(e.code==='Escape'&&S.mode==='menu'){e.preventDefault();showTitle();return}
   K[e.code]=1;
   if(e.code==='Tab'&&S.mode==='play'){e.preventDefault();renderScoreboard();$('sb').classList.remove('hide');return}
   if(S.mode!=='play')return;
@@ -1933,7 +1952,7 @@ function drawMM(now){
 }
 
 /* ---------------- MAIN LOOP ---------------- */
-let last=performance.now();
+let last=performance.now(),idleRenderAt=0;
 function loop(now){
   requestAnimationFrame(loop);let dt=Math.min(.05,(now-last)/1000);last=now;
   if(S.mode==='play'&&!S.paused){
@@ -1954,7 +1973,7 @@ function loop(now){
   }
   for(let i=PS.length-1;i>=0;i--){const p=PS[i];p.l-=dt;p.v.y-=14*dt;p.m.position.addScaledVector(p.v,dt);if(p.m.position.y<.05){p.m.position.y=.05;p.v.multiplyScalar(.4)}if(p.l<=0){sc.remove(p.m);PS.splice(i,1)}}
   for(let i=TR.length-1;i>=0;i--){TR[i].t-=dt;if(TR[i].t<=0){sc.remove(TR[i].l);TR[i].l.geometry.dispose();TR[i].l.material.dispose();TR.splice(i,1)}}
-  if(S.mode!=='play'){fp.visible=false;const t=now*.00012;cam.position.set(Math.sin(t)*42,18,Math.cos(t)*32+2);cam.lookAt(0,0,-2);cam.aspect=innerWidth/innerHeight;cam.fov=60;cam.updateProjectionMatrix()}
+  if(S.mode!=='play'){fp.visible=false;const t=now*.00012;cam.position.set(Math.sin(t)*42,18,Math.cos(t)*32+2);cam.lookAt(0,0,-2);cam.aspect=innerWidth/innerHeight;cam.fov=60;cam.updateProjectionMatrix();if(now-idleRenderAt<33)return;idleRenderAt=now}
   rn.render(sc,cam);
 }
 
