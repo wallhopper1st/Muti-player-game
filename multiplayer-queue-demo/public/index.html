@@ -2,6 +2,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--a:#f2a93b;--b:#4cc3ff;--r:#ff4d4d;--g:#43d9a0;--p:rgba(9,13,19,.9);--line:#ffffff1e}
 *{box-sizing:border-box;user-select:none;margin:0}
@@ -170,7 +171,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <div class="title-hero">
     <div class="tag">REALISTIC BALLISTIC AUDIO · CLEAN OPTICS · STEADY LEAN · 76×54 MAPS</div>
     <h1>SIEGE<b>PROTOCOL</b></h1>
-    <p>Tactical breach shooter with custom room presets, operator loadouts, expanded compounds, and bot matches. Room codes are stored in this browser; online multiplayer needs a game server.</p>
+    <p>Tactical breach shooter with custom rooms, operator loadouts, expanded compounds, and bot matches. Supabase Realtime powers cross-device room discovery and lobbies; live player-vs-player gameplay is not implemented yet.</p>
     <div class="title-actions">
       <button id="title-play" class="btn-main" type="button">Play vs Bots</button>
       <button id="title-train" class="btn-train" type="button">Training (Bots)</button>
@@ -237,15 +238,15 @@ button:disabled{opacity:.45;cursor:not-allowed}
   <div id="rooms-tab" class="hide">
     <div class="room-panel">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <b style="color:var(--g);font-size:15px">HOST CUSTOM MATCH ROOM</b>
-        <span style="color:#8da0b5;font-size:11px">Rooms are saved in this browser only · online play needs a server</span>
+        <b style="color:var(--g);font-size:15px">CUSTOM MATCH PRESET</b>
+        <span id="room-connection-status" style="color:#8da0b5;font-size:11px">Connecting to online rooms…</span>
       </div>
       <div class="room-grid">
         <label class="room-field">Room Name<input id="room-name" maxlength="24" placeholder="e.g. Tactical Scrim"></label>
         <label class="room-field">Privacy &amp; Access
           <select id="room-privacy">
-            <option value="public">Public (Anyone can join)</option>
-            <option value="private">Private (Code required)</option>
+            <option value="public">Public (listed locally in this browser)</option>
+            <option value="private">Private (code required in this browser)</option>
           </select>
         </label>
         <label class="room-field">Room Code (Auto if blank)<input id="roomcode" maxlength="10" placeholder="e.g. ALPHA7" style="text-transform:uppercase"></label>
@@ -323,7 +324,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
     </div>
 
     <div class="room-join-box">
-      <b style="color:var(--b)">JOIN BY CODE:</b>
+      <b style="color:var(--b)">JOIN ONLINE BY CODE:</b>
       <input id="join-code-input" maxlength="10" placeholder="Enter room code..." style="width:180px;text-transform:uppercase">
       <button id="join-by-code-btn" type="button">Load Room</button>
       <button id="refresh-rooms" type="button" style="margin-left:auto">Refresh Rooms</button>
@@ -331,7 +332,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
     <div class="room-list" id="public-room-list"></div>
     <div id="room-lobby" class="room-panel hide">
-      <div><b id="room-lobby-title">Room ready</b><small id="room-lobby-info"></small></div>
+      <div><b id="room-lobby-title">Room ready</b><small id="room-lobby-info"></small><small id="room-player-list">Connecting players…</small></div>
       <div class="hub-right"><button id="room-setup" type="button">Open Match Setup</button><button id="room-leave" type="button">Leave Room</button></div>
     </div>
   </div>
@@ -468,7 +469,7 @@ const ATT={m:'',g:''};
 const OPT={HOLO:{fov:58},REF:{fov:61},S15:{fov:48,mag:1},ACOG:{fov:36,mag:1},IRON:{fov:65}};
 const OPS=[
 {id:'THERMITE',s:'A',c:0xf97316,g:'Exothermic charge',n:2,d:'Hard breacher. Aim at or stand near a wall and press G to breach soft or reinforced walls.',p:['R4C','G36C','M590'],q:['P12','REV'],sp:.95},
-{id:'ASH',s:'A',c:0xfbbf24,g:'Breaching round',n:3,d:'Fast entry. Fires an explosive round that blasts soft walls, barricades, and gadgets.',p:['R4C','G36C'],q:['P12','DEAGLE'],sp:1.1},
+{id:'ASH',s:'A',c:0xfbbf24,g:'Breaching round',n:3,d:'Fast entry. Fires an explosive charge with an expanded blast radius, higher damage, and greater gadget-clearing range.',p:['R4C','G36C'],q:['P12','DEAGLE'],sp:1.1},
 {id:'SLEDGE',s:'A',c:0x34d399,g:'Tactical hammer',n:99,d:'Breacher. Press G to smash soft walls, barricades, gadgets, and enemies up close.',p:['AK12','M590','M249'],q:['SMG11','P12'],sp:1},
 {id:'THATCHER',s:'A',c:0x818cf8,g:'EMP grenade',n:3,d:'Anti-gadget. Disables traps, jammers, cameras, and shock wires within 9m.',p:['R4C','AK12','M590'],q:['P12','REV'],sp:1},
 {id:'HIBANA',s:'A',c:0xec4899,g:'X-KAIROS pellets',n:3,d:'Ranged hard breacher. Detonates on soft or reinforced walls after 1.5s.',p:['F2','G36C','SPAS12'],q:['SMG11','P12'],sp:1.05},
@@ -593,7 +594,12 @@ const SND_CFG={master:.65,gun:.85,boom:.8,move:.55,ui:.6};
 const PREF_KEY='siege_protocol_prefs_v3';
 const profile={ren:1500,crd:500,owned:['out_slate','cam_gunmetal','ch_none'],outfit:'out_slate',skin:'cam_gunmetal',charm:'ch_none'};
 const ROOM_KEY='siege_protocol_custom_rooms_v5';
-const chan=typeof BroadcastChannel!=='undefined'?new BroadcastChannel('siege_protocol_net'):null;
+const SUPABASE_URL='https://dlsyerycpidlfzaejqpp.supabase.co';
+const SUPABASE_KEY='sb_publishable_nCsAa0Q-WUq_jT0LuYCY2Q_igGatLnw';
+const supaClient=window.supabase?.createClient?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
+const onlineRooms=new Map();
+const lobbyPlayerId=(()=>{try{let id=sessionStorage.getItem('siege_lobby_id');if(!id){id=crypto.randomUUID?.()||Math.random().toString(36).slice(2);sessionStorage.setItem('siege_lobby_id',id)}return id}catch{return Math.random().toString(36).slice(2)}})();
+let directoryChannel=null,roomChannel=null,roomHeartbeat=null;
 const getOutfit=()=>SHOP_ITEMS.find(x=>x.id===profile.outfit)||SHOP_ITEMS[0];
 const getSkin=()=>SHOP_ITEMS.find(x=>x.id===profile.skin)||SHOP_ITEMS[5];
 const getCharm=()=>SHOP_ITEMS.find(x=>x.id===profile.charm)||SHOP_ITEMS[9];
@@ -653,20 +659,90 @@ function saveRoomRecord(room){
   try{
     const list=loadAllRooms().filter(r=>r.code!==room.code);list.unshift({...room,updated:Date.now()});
     localStorage.setItem(ROOM_KEY,JSON.stringify(list.slice(0,30)));
-    if(chan)chan.postMessage({type:'rooms_updated'});
     return true;
   }catch{return false}
 }
 function removeRoomRecord(code){
   if(!code)return;
-  try{localStorage.setItem(ROOM_KEY,JSON.stringify(loadAllRooms().filter(r=>r.code!==code)));if(chan)chan.postMessage({type:'rooms_updated'})}catch{}
+  try{localStorage.setItem(ROOM_KEY,JSON.stringify(loadAllRooms().filter(r=>r.code!==code)))}catch{}
 }
 const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function setRoomConnection(text,color='#8da0b5'){
+  const el=$('room-connection-status');if(el){el.textContent=text;el.style.color=color}
+}
+function roomAnnouncement(room){return{code:room.code,name:room.name,isPrivate:false,map:room.map,siteChoice:room.siteChoice,prepSec:room.prepSec,actSec:room.actSec,roundsToWin:room.roundsToWin,botCount:room.botCount,botSkill:room.botSkill,friendlyFire:room.friendlyFire,hostSide:room.hostSide,updated:Date.now()}}
+function announceRoom(){
+  if(!supaClient||!directoryChannel?.topic||!activeRoom?.isHost||activeRoom.isPrivate)return;
+  directoryChannel.send({type:'broadcast',event:'room_announce',payload:roomAnnouncement(activeRoom)});
+}
+function ensureDirectory(){
+  if(!supaClient){setRoomConnection('Supabase client unavailable — check the network/CDN', 'var(--r)');return}
+  if(directoryChannel)return;
+  directoryChannel=supaClient.channel('siege-room-directory',{config:{broadcast:{self:false}}})
+    .on('broadcast',{event:'room_announce'},({payload})=>{
+      if(!payload?.code)return;
+      payload.updated=Date.now();onlineRooms.set(payload.code,payload);renderPublicRooms();
+    })
+    .subscribe(status=>{
+      if(status==='SUBSCRIBED'){setRoomConnection('Online room service connected','var(--g)');announceRoom()}
+      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setRoomConnection('Could not connect to Supabase Realtime','var(--r)');
+    });
+}
+function onlineMembers(channel=roomChannel){
+  if(!channel)return[];
+  return Object.values(channel.presenceState()).flat();
+}
+function refreshRoomMembers(){
+  if(!activeRoom)return;
+  const members=onlineMembers();
+  $('room-player-list').textContent=`Players connected: ${members.length}${members.length?` · ${members.map(m=>m.name||'Player').join(', ')}`:''}`;
+  $('room-lobby-info').textContent=`${MAPS[activeRoom.map]?.n||'Farmhouse'} · ${activeRoom.isPrivate?'Private':'Public'} · Lobby only; match start is manual.`;
+}
+async function leaveOnlineRoom(){
+  clearInterval(roomHeartbeat);roomHeartbeat=null;
+  const old=roomChannel;roomChannel=null;
+  if(old){try{await old.untrack();await old.unsubscribe()}catch{}}
+  if(activeRoom?.isHost)onlineRooms.delete(activeRoom.code);
+}
+async function connectOnlineRoom(room,isHost){
+  if(!supaClient)throw new Error('Supabase client could not load. Check the CDN connection.');
+  await leaveOnlineRoom();
+  const channel=supaClient.channel(`siege-room-${room.code}`,{config:{presence:{key:lobbyPlayerId},broadcast:{self:false}}});
+  channel.on('presence',{event:'sync'},()=>refreshRoomMembers());
+  const ready=await new Promise((resolve,reject)=>{
+    channel.subscribe(status=>{
+      if(status==='SUBSCRIBED')resolve(true);
+      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED')reject(new Error('Could not connect to the room channel.'));
+    });
+    setTimeout(()=>reject(new Error('Room connection timed out.')),10000);
+  });
+  if(!ready)return null;
+  roomChannel=channel;
+  await new Promise(resolve=>setTimeout(resolve,650));
+  let members=onlineMembers(channel);
+  if(isHost&&members.some(m=>m.isHost&&m.id!==lobbyPlayerId)){
+    await channel.unsubscribe();roomChannel=null;throw new Error('That room code is already in use. Try another code.');
+  }
+  const host=members.find(m=>m.isHost);
+  if(!isHost&&!host){await channel.unsubscribe();roomChannel=null;throw new Error('Room not found or host is offline. Check the code and try again.');}
+  const roomConfig=isHost?room:(host.room||room);
+  await channel.track({id:lobbyPlayerId,name:'Player',side:isHost?roomConfig.hostSide:(roomConfig.hostSide==='A'?'D':'A'),isHost,room:roomConfig});
+  activeRoom={...roomConfig,isHost,online:true};
+  members=onlineMembers(channel);refreshRoomMembers();
+  clearInterval(roomHeartbeat);
+  roomHeartbeat=setInterval(()=>{announceRoom();if(activeRoom?.isHost)refreshRoomMembers()},7000);
+  if(!roomConfig.isPrivate)onlineRooms.set(roomConfig.code,roomAnnouncement(roomConfig));
+  return roomConfig;
+}
 function renderPublicRooms(){
-  const rooms=loadAllRooms().filter(r=>!r.isPrivate),el=$('public-room-list');if(!el)return;
-  if(!rooms.length){el.innerHTML='<div class="room-item"><span style="color:#8da0b5">No saved public rooms. Create one in this browser to get started.</span></div>';return}
-  el.innerHTML=rooms.map(r=>`<div class="room-item"><div><b>${escapeHTML(r.name||'Public Room')}</b> <span class="badge-pub">LOCAL</span><small>Code: <b>${escapeHTML(r.code)}</b> · Map: ${MAPS[r.map]?.n||'Farmhouse'} · Prep: ${r.prepSec||10}s · First to ${r.roundsToWin||2} · Bots: ${r.botCount??9}${r.friendlyFire?' · FF ON':''}</small></div><button type="button" data-join-code="${escapeHTML(r.code)}">Load Room</button></div>`).join('');
+  const el=$('public-room-list');if(!el)return;
+  const now=Date.now();for(const [code,r] of onlineRooms)if(now-r.updated>22000)onlineRooms.delete(code);
+  const online=[...onlineRooms.values()].filter(r=>!r.isPrivate);
+  const local=loadAllRooms().filter(r=>!r.isPrivate&&!onlineRooms.has(r.code));
+  if(!online.length&&!local.length){el.innerHTML='<div class="room-item"><span style="color:#8da0b5">No active public rooms. Create one and share its code; the host must stay connected.</span></div>';return}
+  el.innerHTML=online.map(r=>`<div class="room-item"><div><b>${escapeHTML(r.name||'Public Room')}</b> <span class="badge-pub">ONLINE</span><small>Code: <b>${escapeHTML(r.code)}</b> · ${MAPS[r.map]?.n||'Farmhouse'} · Prep ${r.prepSec||10}s · First to ${r.roundsToWin||2}</small></div><button type="button" data-join-code="${escapeHTML(r.code)}">Join Lobby</button></div>`).join('')+local.map(r=>`<div class="room-item"><div><b>${escapeHTML(r.name||'Saved Preset')}</b> <span class="badge-pub" style="color:#8da0b5">SAVED HERE</span><small>Code: <b>${escapeHTML(r.code)}</b> · Local settings only; host is not online</small></div><button type="button" data-local-code="${escapeHTML(r.code)}">Load Preset</button></div>`).join('');
   el.querySelectorAll('[data-join-code]').forEach(b=>b.onclick=()=>joinRoomByCode(b.dataset.joinCode));
+  el.querySelectorAll('[data-local-code]').forEach(b=>b.onclick=()=>{const r=loadAllRooms().find(x=>x.code===b.dataset.localCode);if(r){applyRoomConfig(r);showRoomLobby(r,false);ban('Saved preset loaded','This preset is local only; join an ONLINE room for a connected lobby')}});
 }
 function applyRoomConfig(cfg){
   if(!cfg)return;
@@ -680,17 +756,21 @@ function applyRoomConfig(cfg){
 function showRoomLobby(room,isHost=false){
   activeRoom={...room,isHost};
   $('room-lobby').classList.remove('hide');
-  $('room-lobby-title').textContent=`${isHost?'Hosting':'Loaded'} ${room.isPrivate?'private':'public'} room: ${room.name} [${room.code}]`;
-  $('room-lobby-info').textContent=`${MAPS[room.map]?.n||'Farmhouse'} · Prep ${room.prepSec}s · First to ${room.roundsToWin} · Local bot match; start when ready.`;
-  $('go').textContent='Start Room Match vs Bots';
+  $('room-lobby-title').textContent=`${isHost?'Hosting':'Joined'} ${room.isPrivate?'private':'public'} room: ${room.name} [${room.code}]`;
+  $('room-lobby-info').textContent=`${MAPS[room.map]?.n||'Farmhouse'} · ${room.online?'Online lobby':'Saved local preset'} · Match start is manual.`;
+  $('room-player-list').textContent=room.online?'Connecting players…':'No online players — this is a local preset.';
+  $('go').textContent=room.online?'Start Bot Match (not online gameplay)':'Start Match vs Bots';
 }
-function joinRoomByCode(rawCode){
+async function joinRoomByCode(rawCode){
   const code=(rawCode||'').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'');
-  if(!code){ban('Enter a code','Type a saved room code');return}
-  const existing=loadAllRooms().find(r=>r.code===code);
-  if(!existing){ban('Room not found','Room codes are local to this browser; check the code or create the room here');return}
-  applyRoomConfig(existing);pl.side=existing.hostSide==='A'?'D':'A';$('roomcode').value=code;$('join-code-input').value=code;S.training=false;
-  showRoomLobby(existing,false);renderPublicRooms();ban('Room settings loaded',`${existing.name} · Start the match manually when ready`);
+  if(!code){ban('Enter a code','Type the room code shared by the host');return}
+  setRoomConnection('Joining room…','var(--a)');
+  try{
+    const room=await connectOnlineRoom(onlineRooms.get(code)||{code},false);
+    if(!room)return;
+    applyRoomConfig(room);pl.side=room.hostSide==='A'?'D':'A';$('roomcode').value=code;$('join-code-input').value=code;S.training=false;
+    showRoomLobby(room,false);renderPublicRooms();ban('Online lobby joined',`${room.name} · Wait for the host; matches are not synchronized yet`);
+  }catch(err){setRoomConnection('Online room connection failed','var(--r)');ban('Could not join room',err.message||'Check the room code and Supabase connection')}
 }
 
 let activeShopCat='clothes';
@@ -1335,9 +1415,9 @@ function gadget(){
     const h=cast(cam.position,fw,55,'X'),e=cam.position.clone().addScaledVector(fw,h.t);trc(mz,e,0xfbbf24);pl.gc--;
     if(adsIntercept(e)){ban('Intercepted!','Jäger ADS zapped your round');return}
     boom();shake=.32;deb(e,0xfbbf24,10);
-    P.forEach(p=>{if(p&&p.alive&&!p.rf&&(p.t==='='||p.t==='b')&&Math.hypot(p.mesh.position.x-e.x,p.mesh.position.z-e.z)<2.1)brk(p)});
-    ITEMS.forEach(it=>{if(it.t>0&&it.pos.distanceTo(e)<2.6)it.t=0});
-    U.forEach(u=>{if(u.alive&&u.side==='D'&&dist(u.pos,e)<3.4)dmgU(u,75,pl,0)});
+    P.forEach(p=>{if(p&&p.alive&&!p.rf&&(p.t==='='||p.t==='b')&&Math.hypot(p.mesh.position.x-e.x,p.mesh.position.z-e.z)<3.1)brk(p)});
+    ITEMS.forEach(it=>{if(it.t>0&&it.pos.distanceTo(e)<3.3)it.t=0});
+    U.forEach(u=>{if(u.alive&&u.side==='D'&&dist(u.pos,e)<4.25)dmgU(u,90,pl,0)});
   }else if(id==='SLEDGE'){
     const targetWall=findBreachTarget(fw,3.2,2.6);snd(150,'square',.42,.15,0,'boom');shake=.15;
     if(targetWall&&!targetWall.rf&&(targetWall.t==='='||targetWall.t==='b'))brk(targetWall);
@@ -1425,8 +1505,9 @@ function drone(on){if(pl.side!=='A'||!pl.alive)return;pl.drone=on;fp.visible=!on
 function endPrep(){if(S.phase!=='PREP')return;S.phase='ACT';S.t=S.actSec||150;if(pl.drone)drone(false);ban('Action phase',pl.side==='A'?'Breach and plant the defuser':'Hold the building');snd(700,'triangle',.25,.3,0,'ui')}
 
 /* ---------------- ROOMS & MULTIPLAYER ---------------- */
-function genRoomCode(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let code;do{code=Array.from({length:6},()=>chars[(Rn()*chars.length)|0]).join('')}while(loadAllRooms().some(r=>r.code===code));return code}
-if(chan)chan.onmessage=ev=>{if(ev.data?.type==='rooms_updated')renderPublicRooms()};
+function genRoomCode(){const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let code;do{code=Array.from({length:6},()=>chars[(Rn()*chars.length)|0]).join('')}while(loadAllRooms().some(r=>r.code===code)||onlineRooms.has(code));return code}
+ensureDirectory();
+setInterval(()=>{announceRoom();renderPublicRooms()},9000);
 function beginMatchWithMode(mode,matchId,opponentName){
   S.netMode='bot';S.matchId=matchId;S.opponentName=opponentName;startRound();
   if(S.training)ban('Training Grounds',`${MAP.n} · Shoot anytime · 15 Team RF`);
@@ -1441,20 +1522,29 @@ function startConfiguredMatch(){
   if(S.training){S.prepSec=TRN.prep;S.actSec=TRN.elim?300:150;S.roundsToWin=2;S.botCount=9;S.friendlyFire=TRN.ff;S.elim=TRN.elim;S.static=TRN.stat;S.dif0=S.dif0||DIF;DIF=TDIF[TRN.diff];beginMatchWithMode('bot','train_'+Math.random().toString(36).slice(2,6),'Training Bots');return}
   beginMatchWithMode('bot',activeRoom?.code||'local_'+Math.random().toString(36).slice(2,7),activeRoom?`Room ${activeRoom.code} · Bots`:'Bots');
 }
-$('createroom').onclick=()=>{
+$('createroom').onclick=async()=>{
   au();S.training=false;
-  const code=($('roomcode').value||'').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'')||genRoomCode();
-  $('roomcode').value=code;
-  const room=readCustomRoomForm(code,$('room-privacy').value==='private');
-  if(!saveRoomRecord(room)){ban('Could not save room','Browser storage may be unavailable');return}
-  applyRoomConfig(room);pl.side=room.hostSide;S.hostedRoomCode=code;showRoomLobby(room,true);renderPublicRooms();
-  ban('Room created',`Code ${code} · Start the match manually when ready`);
+  if(!supaClient){ban('Online rooms unavailable','Supabase client failed to load. Check the connection and refresh.');return}
+  const button=$('createroom');button.disabled=true;
+  try{
+    const code=($('roomcode').value||'').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'')||genRoomCode();
+    $('roomcode').value=code;
+    const room=readCustomRoomForm(code,$('room-privacy').value==='private');
+    const connected=await connectOnlineRoom(room,true);
+    if(!connected)return;
+    saveRoomRecord(room);applyRoomConfig(room);pl.side=room.hostSide;S.hostedRoomCode=code;showRoomLobby({...room,online:true},true);
+    announceRoom();renderPublicRooms();setRoomConnection('Online room created — share the code','var(--g)');
+    ban('Online lobby created',`Share code ${code}. Players can join; start is manual.`);
+  }catch(err){setRoomConnection('Could not create online room','var(--r)');ban('Room creation failed',err.message||'Check Supabase Realtime settings')}
+  finally{button.disabled=false}
 };
 $('join-by-code-btn').onclick=()=>joinRoomByCode($('join-code-input').value);
 $('refresh-rooms').onclick=renderPublicRooms;
 $('room-setup').onclick=()=>{openHub('ops',false)};
-$('room-leave').onclick=()=>{
-  if(activeRoom?.isHost){removeRoomRecord(activeRoom.code);if(S.hostedRoomCode===activeRoom.code)S.hostedRoomCode=null}
+$('room-leave').onclick=async()=>{
+  const wasHost=activeRoom?.isHost,code=activeRoom?.code;
+  await leaveOnlineRoom();
+  if(wasHost){removeRoomRecord(code);if(S.hostedRoomCode===code)S.hostedRoomCode=null}
   activeRoom=null;$('room-lobby').classList.add('hide');$('go').textContent='Start Match vs Bots';renderPublicRooms();
 };
 
@@ -1506,6 +1596,7 @@ function quickRestartRound(){
 let selOp='THERMITE',menuTab='ops';
 function showTitle(){
   if(S.hostedRoomCode){removeRoomRecord(S.hostedRoomCode);S.hostedRoomCode=null}
+  if(roomChannel)leaveOnlineRoom();
   activeRoom=null;$('room-lobby').classList.add('hide');
   S.mode='title';S.phase='TITLE';
   $('hud').classList.add('hide');$('menu').classList.add('hide');$('end').classList.add('hide');$('pause').classList.add('hide');$('sb').classList.add('hide');
@@ -1516,7 +1607,7 @@ function openHub(tab='ops',first=true){
   $('menu').classList.remove('hide');S.mode='menu';S.phase='MENU';
   renderBinds();renderPublicRooms();renderShop();syncWalletUI();renderTrn();setMenuTab(menuTab);
   $('pre').style.display=(first&&(menuTab==='maps'||menuTab==='ops'))?'':'none';
-  $('msub').textContent=S.training?'Training Mode · Pick operator, site & spawn.':'Local bot match · 76×54 maps · 5 spawns per side · 15 shared RF.';
+  $('msub').textContent=S.training?'Training Mode · Pick operator, site & spawn.':activeRoom?.online?'Supabase Realtime lobby · Players can connect across devices · Match simulation remains bot-only.':'Local bot match · 76×54 maps · 5 spawns per side · 15 shared RF.';
   const ops=OPS.filter(o=>o.s===pl.side);if(!ops.some(o=>o.id===selOp))selOp=ops[0].id;
   $('ops').innerHTML=ops.map(o=>`<button class="oc ${o.id===selOp?'on':''}" data-o="${o.id}" style="--c:#${o.c.toString(16).padStart(6,'0')}"><span class="op-ico">${opIconHTML(o.id)}</span><span><b>${o.id}</b><small>${o.g}</small></span></button>`).join('');
   $('ops').querySelectorAll('button').forEach(b=>b.onclick=()=>{selOp=b.dataset.o;openHub(menuTab,first)});
@@ -1539,7 +1630,7 @@ function setMenuTab(tab){
   $('pre').classList.toggle('hide',tab!=='maps');document.querySelector('.two').classList.toggle('hide',tab!=='ops');
   $('rooms-tab').classList.toggle('hide',tab!=='rooms');$('shop-tab').classList.toggle('hide',tab!=='shop');
   document.querySelector('#menu .gfx').classList.toggle('hide',tab!=='settings');$('controls').classList.toggle('hide',tab!=='controls');
-  $('trn').classList.toggle('hide',!S.training||tab!=='ops');$('go').textContent=S.training?`Start Bot Training (${TRN.prep}s prep)`:activeRoom?'Start Room Match vs Bots':'Start Match vs Bots';
+  $('trn').classList.toggle('hide',!S.training||tab!=='ops');$('go').textContent=S.training?`Start Bot Training (${TRN.prep}s prep)`:activeRoom?.online?'Start Bot Match (not online gameplay)':activeRoom?'Start Match vs Bots':'Start Match vs Bots';
 }
 document.querySelectorAll('#menutabs [data-tab]').forEach(b=>b.onclick=()=>setMenuTab(b.dataset.tab));
 document.querySelectorAll('#pausetabs [data-tab]').forEach(b=>b.onclick=()=>setPauseTab(b.dataset.tab));
