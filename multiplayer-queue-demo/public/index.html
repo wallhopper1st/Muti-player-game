@@ -670,6 +670,14 @@ const escapeHTML=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<
 function setRoomConnection(text,color='#8da0b5'){
   const el=$('room-connection-status');if(el){el.textContent=text;el.style.color=color}
 }
+function realtimeError(status,error){
+  const detail=error?.message||error?.cause?.message;
+  if(detail)return `${status}: ${detail}`;
+  if(status==='CHANNEL_ERROR')return 'Supabase rejected the Realtime channel. Check the project URL/key and that Realtime is enabled.';
+  if(status==='TIMED_OUT')return 'Supabase Realtime timed out. Check the project URL/key, network, and Realtime availability.';
+  if(status==='CLOSED')return 'Supabase closed the Realtime connection.';
+  return `Supabase Realtime status: ${status}`;
+}
 function roomAnnouncement(room){return{code:room.code,name:room.name,isPrivate:false,map:room.map,siteChoice:room.siteChoice,prepSec:room.prepSec,actSec:room.actSec,roundsToWin:room.roundsToWin,botCount:room.botCount,botSkill:room.botSkill,friendlyFire:room.friendlyFire,hostSide:room.hostSide,updated:Date.now()}}
 function announceRoom(){
   if(!supaClient||!directoryChannel?.topic||!activeRoom?.isHost||activeRoom.isPrivate)return;
@@ -683,9 +691,9 @@ function ensureDirectory(){
       if(!payload?.code)return;
       payload.updated=Date.now();onlineRooms.set(payload.code,payload);renderPublicRooms();
     })
-    .subscribe(status=>{
+    .subscribe((status,error)=>{
       if(status==='SUBSCRIBED'){setRoomConnection('Online room service connected','var(--g)');announceRoom()}
-      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setRoomConnection('Could not connect to Supabase Realtime','var(--r)');
+      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED')setRoomConnection(realtimeError(status,error),'var(--r)');
     });
 }
 function onlineMembers(channel=roomChannel){
@@ -709,12 +717,22 @@ async function connectOnlineRoom(room,isHost){
   await leaveOnlineRoom();
   const channel=supaClient.channel(`siege-room-${room.code}`,{config:{presence:{key:lobbyPlayerId},broadcast:{self:false}}});
   channel.on('presence',{event:'sync'},()=>refreshRoomMembers());
+  let timeoutId;
   const ready=await new Promise((resolve,reject)=>{
-    channel.subscribe(status=>{
-      if(status==='SUBSCRIBED')resolve(true);
-      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED')reject(new Error('Could not connect to the room channel.'));
+    let settled=false;
+    const finish=(error)=>{
+      if(settled)return;
+      settled=true;clearTimeout(timeoutId);
+      error?reject(error):resolve(true);
+    };
+    channel.subscribe((status,error)=>{
+      if(status==='SUBSCRIBED')finish();
+      else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED')finish(new Error(realtimeError(status,error)));
     });
-    setTimeout(()=>reject(new Error('Room connection timed out.')),10000);
+    timeoutId=setTimeout(()=>finish(new Error('Room connection timed out. Check the Supabase project URL/key and Realtime status.')),12000);
+  }).catch(async error=>{
+    try{await channel.unsubscribe()}catch{}
+    throw error;
   });
   if(!ready)return null;
   roomChannel=channel;
@@ -726,7 +744,19 @@ async function connectOnlineRoom(room,isHost){
   const host=members.find(m=>m.isHost);
   if(!isHost&&!host){await channel.unsubscribe();roomChannel=null;throw new Error('Room not found or host is offline. Check the code and try again.');}
   const roomConfig=isHost?room:(host.room||room);
-  await channel.track({id:lobbyPlayerId,name:'Player',side:isHost?roomConfig.hostSide:(roomConfig.hostSide==='A'?'D':'A'),isHost,room:roomConfig});
+  const presence=await Promise.race([
+    channel.track({id:lobbyPlayerId,name:'Player',side:isHost?roomConfig.hostSide:(roomConfig.hostSide==='A'?'D':'A'),isHost,room:roomConfig}),
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error('Supabase presence tracking timed out. Check Realtime is enabled for this project.')),8000))
+  ]).catch(async error=>{
+    roomChannel=null;
+    try{await channel.unsubscribe()}catch{}
+    throw error;
+  });
+  if(presence!=='ok'){
+    roomChannel=null;
+    try{await channel.unsubscribe()}catch{}
+    throw new Error(`Supabase presence tracking failed (${presence||'no response'}). Check Realtime is enabled and its access policies allow room channels.`);
+  }
   activeRoom={...roomConfig,isHost,online:true};
   members=onlineMembers(channel);refreshRoomMembers();
   clearInterval(roomHeartbeat);
@@ -764,13 +794,13 @@ function showRoomLobby(room,isHost=false){
 async function joinRoomByCode(rawCode){
   const code=(rawCode||'').trim().toUpperCase().replace(/[^A-Z0-9_-]/g,'');
   if(!code){ban('Enter a code','Type the room code shared by the host');return}
-  setRoomConnection('Joining room…','var(--a)');
+  setRoomConnection(`Connecting to room ${code}…`,'var(--a)');
   try{
     const room=await connectOnlineRoom(onlineRooms.get(code)||{code},false);
     if(!room)return;
     applyRoomConfig(room);pl.side=room.hostSide==='A'?'D':'A';$('roomcode').value=code;$('join-code-input').value=code;S.training=false;
     showRoomLobby(room,false);renderPublicRooms();ban('Online lobby joined',`${room.name} · Wait for the host; matches are not synchronized yet`);
-  }catch(err){setRoomConnection('Online room connection failed','var(--r)');ban('Could not join room',err.message||'Check the room code and Supabase connection')}
+  }catch(err){setRoomConnection(err.message||'Online room connection failed','var(--r)');ban('Could not join room',err.message||'Check the room code and Supabase connection')}
 }
 
 let activeShopCat='clothes';
@@ -825,9 +855,7 @@ const mCe=new THREE.MeshLambertMaterial({color:0x1b2026});
 const gltfLoader=typeof THREE.GLTFLoader!=='undefined'?new THREE.GLTFLoader():null;
 const modelCache={};
 function tryLoadGLB(path,cb){
-  if(!gltfLoader)return;
-  if(modelCache[path]){cb(modelCache[path].clone());return}
-  gltfLoader.load(path,g=>{modelCache[path]=g.scene;cb(g.scene.clone())},undefined,()=>{});
+  // Optional model assets are not included; keep the procedural fallback models.
 }
 
 /* ---------------- MAP BUILDER ---------------- */
@@ -1535,7 +1563,7 @@ $('createroom').onclick=async()=>{
     saveRoomRecord(room);applyRoomConfig(room);pl.side=room.hostSide;S.hostedRoomCode=code;showRoomLobby({...room,online:true},true);
     announceRoom();renderPublicRooms();setRoomConnection('Online room created — share the code','var(--g)');
     ban('Online lobby created',`Share code ${code}. Players can join; start is manual.`);
-  }catch(err){setRoomConnection('Could not create online room','var(--r)');ban('Room creation failed',err.message||'Check Supabase Realtime settings')}
+  }catch(err){setRoomConnection(err.message||'Could not create online room','var(--r)');ban('Room creation failed',err.message||'Check Supabase Realtime settings')}
   finally{button.disabled=false}
 };
 $('join-by-code-btn').onclick=()=>joinRoomByCode($('join-code-input').value);
